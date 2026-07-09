@@ -374,7 +374,7 @@ function log() {}
 function feed(px) {
   const n = ri(3, 5);
   for (let i = 0; i < n; i++) {
-    flakes.push({ x: (px ?? rnd(30, W - 30)) + rnd(-8, 8), y: rnd(2, 8), vy: rnd(1.1, 1.7), life: 1400 });
+    flakes.push({ x: (px ?? rnd(30, W - 30)) + rnd(-8, 8), y: rnd(2, 8), vy: rnd(0.55, 0.85), life: 1400 });
   }
   log(`feed.sh: ${n} flakes dropped`, "ok");
 }
