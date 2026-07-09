@@ -283,6 +283,10 @@ const LOVE_AT = 3; // meals before a fish trusts you enough to be named
 let t = 0, spawnedPids = new Set();
 let shark = null, sharkTimer = rnd(45000, 90000);
 let night = false;
+// shark raid boss event
+let raid = null, raidTimer = rnd(60000, 120000), raidDark = 0;
+const RAID_WARN_MS = 13000, BOSS_HP = 12;
+const WOUND_SPOTS = [[8,4],[12,5],[16,3],[10,6],[14,4],[18,5],[7,5],[20,4],[11,3],[15,6],[9,4],[17,4]];
 let breedT = rnd(20000, 40000);
 let driftT = rnd(90000, 180000);
 const CHEST = { x: 146, y: SAND_Y - 9, w: 13, h: 9, openT: 0, cooldown: 0 };
@@ -418,6 +422,154 @@ function summonShark() {
   const dir = Math.random() < 0.5 ? 1 : -1;
   shark = { x: dir === 1 ? -30 : W + 30, y: rnd(30, 70), dir };
   log("[WARN] unauthorized sudo shark detected — all fish scattering", "warn");
+}
+
+// ---------- raid ----------
+function startRaid() {
+  raid = { phase: "warn", timer: RAID_WARN_MS, boss: null };
+}
+
+function bossHit(dmg) {
+  const b = raid.boss;
+  b.hp -= dmg;
+  for (let k = 0; k < 4 + dmg * 2; k++) {
+    bubbles.push({ x: b.x + rnd(-9, 9), y: b.y + rnd(-6, 6), r: Math.random() < 0.5 ? 1 : 2, ph: rnd(0, 6) });
+  }
+  if (b.hp <= 0) raidWin();
+}
+
+function endPass(b) {
+  b.passes++;
+  b.ty = rnd(30, 66);
+  if (b.passes >= 6) raidFail();
+}
+
+function raidWin() {
+  const b = raid.boss;
+  raid.phase = "flee";
+  b.dir = b.x < W / 2 ? -1 : 1;
+  // coin rain
+  for (let k = 0; k < 16; k++) {
+    coins.push({ x: rnd(12, W - 12), y: rnd(-14, 0), vy: rnd(0.05, 0.2), life: rnd(1600, 2800) });
+  }
+  // one rare egg drifts down
+  const rare = Math.random() < 0.35;
+  const sp = rare ? "golden" : ["tetra", "guppy", "angel", "seahorse"][ri(0, 3)];
+  eggs.push({
+    x: rnd(40, 150), y: 26, hatch: rnd(20000, 32000), species: sp,
+    pal: rare ? SPECIES_DEF.find(d => d.key === "golden").pal : FISH_PALETTES[ri(0, FISH_PALETTES.length - 1)],
+  });
+  // the whole tank celebrates
+  for (const f of fishes) {
+    hearts.push({ x: f.x, y: f.y - 5, life: rnd(900, 1600) });
+    f.ate++;
+  }
+}
+
+function raidFail() {
+  const b = raid.boss;
+  let victim = null, bd = 1e9;
+  for (const f of fishes) {
+    if (SAND_DWELLERS.includes(f.species) || f.species === "jelly" || f.inflated) continue;
+    const d = Math.hypot(f.x - b.x, f.y - b.y);
+    if (d < bd) { bd = d; victim = f; }
+  }
+  if (victim) {
+    dropFood(victim);
+    fishes.splice(fishes.indexOf(victim), 1);
+    for (let k = 0; k < 10; k++) {
+      bubbles.push({ x: victim.x + rnd(-4, 4), y: victim.y + rnd(-3, 3), r: Math.random() < 0.5 ? 1 : 2, ph: rnd(0, 6) });
+    }
+    if (nonCrabCount() < MIN_FISH) {
+      setTimeout(() => {
+        if (nonCrabCount() >= MIN_FISH) return;
+        let nf; do { nf = makeFish(); } while (nf.species === "crab");
+        fishes.push(nf);
+      }, 8000);
+    }
+  }
+  raid.phase = "flee";
+  b.dir = b.x < W / 2 ? -1 : 1;
+}
+
+function updateBoss(dt) {
+  const b = raid.boss;
+  b.hitCd -= dt; b.mcd -= dt; b.jcd -= dt; b.scd -= dt; b.bitCd -= dt;
+  if (b.stun > 0) {
+    b.stun -= dt;
+  } else {
+    const slow = 0.6 + (b.hp / BOSS_HP) * 0.4; // wounded boss swims slower
+    b.x += (b.dir * 0.5 * slow + b.kvx) * dt * 0.06;
+    b.kvx *= 1 - 0.002 * dt;
+    b.y += ((b.ty - b.y) * 0.0005 + Math.sin(t * 0.004) * 0.01) * dt * 0.6;
+    b.y = Math.max(22, Math.min(SAND_Y - 26, b.y));
+  }
+  if (b.x < 16 && b.dir === -1) { b.x = 16; b.dir = 1; endPass(b); }
+  if (b.x > W - 16 && b.dir === 1) { b.x = W - 16; b.dir = -1; endPass(b); }
+  if (!raid || raid.phase !== "fight") return;
+
+  // bite: shoves a fish aside (stun + ragdoll, no kill mid-fight)
+  if (b.bitCd <= 0) {
+    const mx = b.x + b.dir * 14;
+    for (const f of fishes) {
+      if (SAND_DWELLERS.includes(f.species) || f.knock > 0) continue;
+      if (Math.abs(f.x - mx) < 9 && Math.abs(f.y - b.y) < 8) {
+        f.knock = 2600;
+        f.kvx = (f.x >= b.x ? 1 : -1) * rnd(1.6, 2.4);
+        f.kvy = rnd(-1.6, -0.6);
+        dropFood(f);
+        b.bitCd = 1800;
+        break;
+      }
+    }
+  }
+  // inflated puffer = spike trap
+  if (b.hitCd <= 0) {
+    for (const f of fishes) {
+      if (f.species !== "puffer" || !f.inflated) continue;
+      if (Math.abs(f.x - b.x) < 16 && Math.abs(f.y - b.y) < 10) {
+        bossHit(2);
+        if (!raid || raid.phase !== "fight") return;
+        b.dir *= -1;
+        b.kvx = (b.x < f.x ? -1 : 1) * 1.6;
+        b.hitCd = 1400;
+        break;
+      }
+    }
+  }
+  // jelly sting paralyzes
+  if (b.jcd <= 0) {
+    for (const f of fishes) {
+      if (f.species !== "jelly") continue;
+      if (Math.abs(f.x - b.x) < 10 && Math.abs(f.y - b.y) < 8) { b.stun = 1000; b.jcd = 5000; break; }
+    }
+  }
+  // mantis turret guards its chest
+  if (b.mcd <= 0 && Math.abs(b.x - (CHEST.x + 6)) < 24 && b.y > 52) {
+    MANTIS.dir = b.x >= CHEST.x + 6 ? 1 : -1;
+    MANTIS.show = 1100;
+    CHEST.openT = Math.max(CHEST.openT, 1100);
+    b.kvx = MANTIS.dir * 2.2;
+    b.ty = Math.max(24, b.y - 18);
+    b.mcd = 4200;
+    bossHit(3);
+    if (!raid || raid.phase !== "fight") return;
+  }
+  // school ram: brave cluster charges together
+  if (b.scd <= 0) {
+    const braves = fishes.filter(f =>
+      !SAND_DWELLERS.includes(f.species) && f.species !== "jelly" && f.knock <= 0 &&
+      Math.hypot(f.x - b.x, f.y - b.y) < 42);
+    if (braves.length >= 4) {
+      for (const f of braves) {
+        f.dir = f.x < b.x ? 1 : -1;
+        f.thrust = 2.2;
+        f.burstT = rnd(400, 900);
+      }
+      bossHit(1);
+    }
+    b.scd = 2600;
+  }
 }
 function applyNightByClock() {
   const h = new Date().getHours();
@@ -720,6 +872,41 @@ function drawShark() {
   drawSprite(SHARK_SPRITE, shark.x, shark.y, shark.dir, SHARK_PAL, {});
 }
 
+function drawRaid() {
+  if (!raid) return;
+  if (raid.phase === "warn") {
+    // distant fin silhouette glides past in the gloom
+    const p = 1 - raid.timer / RAID_WARN_MS;
+    const sx = -30 + p * (W + 60);
+    cx.globalAlpha = 0.18;
+    drawSprite(SHARK_SPRITE, sx, 17, 1, { b: "#0b1830", d: "#081226", f: "#081226" }, {});
+    cx.globalAlpha = 1;
+    return;
+  }
+  const b = raid.boss;
+  const rows = SHARK_SPRITE, h = rows.length, w = rows[0].length, s = 2;
+  const ox = Math.round(b.x - w), oy = Math.round(b.y - h);
+  for (let r = 0; r < h; r++) {
+    for (let c = 0; c < w; c++) {
+      const ch = rows[r][c];
+      if (ch === ".") continue;
+      const dc = b.dir === 1 ? c : w - 1 - c;
+      cx.fillStyle =
+        ch === "b" ? "#4a5f74" :
+        ch === "d" ? "#32424f" :
+        ch === "w" ? "#e8f2fa" :
+        (raidDark > 0.5 ? "#ff3b3b" : "#0a0e14"); // eye burns red in the dark
+      cx.fillRect(ox + dc * s, oy + r * s, s, s);
+    }
+  }
+  // wounds accumulate as the tank fights back
+  cx.fillStyle = "#ff5c5c";
+  for (let k = 0; k < BOSS_HP - b.hp && k < WOUND_SPOTS.length; k++) {
+    const dc = b.dir === 1 ? WOUND_SPOTS[k][0] : w - 1 - WOUND_SPOTS[k][0];
+    cx.fillRect(ox + dc * s, oy + WOUND_SPOTS[k][1] * s, s, s);
+  }
+}
+
 function drawChest() {
   const X = CHEST.x, Y = CHEST.y, open = CHEST.openT > 0;
   // base
@@ -761,9 +948,38 @@ function update(dt) {
   t += dt;
   const nightMul = night ? 0.5 : 1;
 
-  // shark event
-  sharkTimer -= dt;
-  if (!shark && sharkTimer <= 0) { summonShark(); }
+  // raid state machine
+  if (!raid) {
+    raidTimer -= dt;
+    if (raidTimer <= 0 && fishes.length >= 8 && !shark) startRaid();
+  } else if (raid.phase === "warn") {
+    raid.timer -= dt;
+    if (raid.timer <= 0) {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      raid.boss = {
+        x: dir === 1 ? -30 : W + 30, y: 45, ty: rnd(32, 64), dir,
+        hp: BOSS_HP, passes: 0, stun: 0, kvx: 0,
+        hitCd: 0, mcd: 2000, jcd: 0, scd: 2500, bitCd: 1000,
+      };
+      raid.phase = "fight";
+    }
+  } else if (raid.phase === "fight") {
+    updateBoss(dt);
+  } else if (raid.phase === "flee") {
+    const b = raid.boss;
+    b.x += b.dir * 1.8 * dt * 0.06;
+    if (b.x < -45 || b.x > W + 45) {
+      raid = null;
+      raidTimer = rnd(140000, 280000);
+    }
+  }
+  raidDark += (((raid && raid.phase !== "flee") ? 1 : 0) - raidDark) * 0.0012 * dt;
+  const threat = raid && raid.phase === "fight" ? raid.boss : shark;
+  const fleeR = raid && raid.phase === "fight" ? 26 : 75;
+
+  // shark event (paused during raids)
+  if (!raid) sharkTimer -= dt;
+  if (!raid && !shark && sharkTimer <= 0) { summonShark(); }
   if (shark) {
     shark.x += shark.dir * (reduced ? 0.4 : 0.75) * dt * 0.06;
     shark.y += Math.sin(t * 0.005) * 0.03 * dt * 0.06;
@@ -799,9 +1015,10 @@ function update(dt) {
   }
 
   // mantis shrimp guards the chest: punches anything that swims too close
+  // (during a raid fight it saves its punches for the boss)
   MANTIS.cool -= dt;
   if (MANTIS.show > 0) MANTIS.show -= dt;
-  if (MANTIS.cool <= 0) {
+  if (MANTIS.cool <= 0 && (!raid || raid.phase === "warn")) {
     for (const f of fishes) {
       if (SAND_DWELLERS.includes(f.species) || f.knock > 0) continue;
       if (Math.abs(f.x - (CHEST.x + 6)) < 13 && f.y > CHEST.y - 15) {
@@ -828,7 +1045,7 @@ function update(dt) {
   breedT -= dt;
   if (breedT <= 0) {
     breedT = rnd(25000, 50000);
-    if (eggs.length === 0 && fishes.length < 14) {
+    if (!raid && eggs.length === 0 && fishes.length < 14) {
       outer:
       for (let i = 0; i < fishes.length; i++) {
         for (let j = i + 1; j < fishes.length; j++) {
@@ -873,7 +1090,7 @@ function update(dt) {
   driftT -= dt;
   if (driftT <= 0) {
     driftT = rnd(90000, 180000);
-    if (fishes.length < 12) fishes.push(makeFish());
+    if (!raid && fishes.length < 12) fishes.push(makeFish());
   }
 
   // fish
@@ -953,20 +1170,24 @@ function update(dt) {
       continue;
     }
 
-    // puffer inflation: scheduled hiccups + shark proximity
+    // raid omen: swimmers sink toward cover among the plants
+    if (raid && raid.phase === "warn") f.targetY = Math.max(f.targetY, SAND_Y - 26);
+
+    // puffer inflation: scheduled hiccups + threat proximity
     if (f.species === "puffer") {
       f.puffT -= dt;
-      const sharkNear = shark && Math.abs(shark.x - f.x) < 55;
+      const sharkNear = threat && Math.abs(threat.x - f.x) < 55;
       const wasInflated = f.inflated;
       f.inflated = sharkNear || f.puffT < 3000;
       if (f.puffT < 0) f.puffT = rnd(12000, 26000);
       if (f.inflated && !wasInflated) log(`${f.name}[${f.pid}] inflated — stack overflow`, "warn");
     }
 
-    // flee shark
-    if (shark && Math.abs(shark.x - f.x) < 75) {
-      f.dir = f.x < shark.x ? -1 : 1;
-      f.targetY = f.y < shark.y ? 16 : SAND_Y - 14;
+    // flee threat (shark, or raid boss at a tighter radius so brave fish can ram)
+    // inflated puffers hold their ground — they ARE the defense
+    if (threat && Math.abs(threat.x - f.x) < fleeR && !f.inflated) {
+      f.dir = f.x < threat.x ? -1 : 1;
+      f.targetY = f.y < threat.y ? 16 : SAND_Y - 14;
       dropFood(f);
     } else {
       if (f.foodCd > 0) f.foodCd -= dt;
@@ -977,7 +1198,7 @@ function update(dt) {
       }
       // probabilistic interest: hungry fish react sooner, and a flake
       // only gets chased by the 1-2 fish that claimed it first
-      if (!f.food && f.foodCd <= 0 && Math.random() < 0.004 * (f.ate < LOVE_AT ? 1 : 0.4) * dt) {
+      if (!raid && !f.food && f.foodCd <= 0 && Math.random() < 0.004 * (f.ate < LOVE_AT ? 1 : 0.4) * dt) {
         let bd = 70, pick = null;
         for (const fl of flakes) {
           if (fl.grounded || fl.claims >= fl.maxClaims) continue;
@@ -998,8 +1219,8 @@ function update(dt) {
     }
 
     let sp = f.food ? f.speed * 1.9 : f.speed;
-    const excited = f.food || (shark && Math.abs(shark.x - f.x) < 75);
-    if (shark && Math.abs(shark.x - f.x) < 75) sp = f.speed * 2.6;
+    const excited = f.food || (threat && Math.abs(threat.x - f.x) < fleeR);
+    if (threat && Math.abs(threat.x - f.x) < fleeR) sp = f.speed * 2.6;
     if (f.inflated) sp = f.speed * 0.3;
     sp *= nightMul;
     // burst-and-glide: tail-beat kicks accelerate the fish, then it coasts
@@ -1125,6 +1346,12 @@ function render() {
     }
   }
   for (const p of plants) if (p.front) drawPlant(p);
+  // raid gloom settles over the whole tank, boss stays vivid on top
+  if (raidDark > 0.01) {
+    cx.fillStyle = `rgba(3, 9, 20, ${(raidDark * 0.42).toFixed(3)})`;
+    cx.fillRect(0, 0, W, H);
+  }
+  drawRaid();
 }
 
 // ---------- loop ----------
