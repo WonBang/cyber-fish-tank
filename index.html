@@ -294,6 +294,7 @@ function makeFish(forceKey) {
     puffT: rnd(8000, 20000),
     knock: 0, kvx: 0, kvy: 0,
     tx: rnd(20, W - 20),
+    burstT: rnd(0, 2000), thrust: 1, scurry: 0,
   };
   if (def.key === "crab") { f.y = SAND_Y - 4; f.speed = rnd(0.05, 0.09); }
   if (def.key === "jelly") { f.speed = rnd(0.02, 0.05); }
@@ -813,7 +814,12 @@ function update(dt) {
     if (f.species === "crab") {
       // ferris walks the sand, eats flakes that land nearby
       f.y = SAND_Y - 4;
-      if (f.retarget <= 0) { f.retarget = rnd(2500, 7000); if (Math.random() < 0.5) f.dir *= -1; }
+      if (f.retarget <= 0) {
+        f.retarget = rnd(2500, 7000);
+        if (Math.random() < 0.5) f.dir *= -1;
+        if (Math.random() < 0.3) f.scurry = rnd(600, 1200); // sudden crab dash
+      }
+      if (f.scurry > 0) f.scurry -= dt;
       let snack = null;
       for (const fl of flakes) {
         if (fl.y > SAND_Y - 8 && Math.abs(fl.x - f.x) < 40) { snack = fl; break; }
@@ -822,7 +828,7 @@ function update(dt) {
         f.dir = snack.x > f.x ? 1 : -1;
         if (Math.abs(snack.x - f.x) < 5) eat(f, snack);
       }
-      f.x += f.dir * f.speed * nightMul * dt * 0.06;
+      f.x += f.dir * f.speed * (f.scurry > 0 ? 2.8 : 1) * nightMul * dt * 0.06;
       if (f.x < 10) { f.x = 10; f.dir = 1; }
       if (f.x > W - 10) { f.x = W - 10; f.dir = -1; }
       continue;
@@ -875,10 +881,18 @@ function update(dt) {
     }
 
     let sp = f.food ? f.speed * 1.9 : f.speed;
+    const excited = f.food || (shark && Math.abs(shark.x - f.x) < 75);
     if (shark && Math.abs(shark.x - f.x) < 75) sp = f.speed * 2.6;
     if (f.inflated) sp = f.speed * 0.3;
     sp *= nightMul;
-    f.vx += (f.dir * sp - f.vx) * 0.02 * dt * 0.06;
+    // burst-and-glide: tail-beat kicks accelerate the fish, then it coasts
+    f.burstT -= dt;
+    if (f.burstT <= 0) {
+      f.burstT = (excited ? rnd(300, 800) : rnd(1000, 3000)) * (f.species === "whale" ? 2 : 1);
+      f.thrust = rnd(1.3, 2.1);
+    }
+    f.thrust = Math.max(0.3, f.thrust - 0.0006 * dt);
+    f.vx += (f.dir * sp * f.thrust - f.vx) * 0.02 * dt * 0.06;
     f.x += f.vx * dt * 0.06;
     f.y += ((f.targetY - f.y) * 0.0009 + Math.sin(t * 0.004 + f.phase) * 0.004) * dt * 0.6;
     if (f.x < 12) { f.x = 12; f.dir = 1; }
