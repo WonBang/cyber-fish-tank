@@ -140,6 +140,27 @@ const SPRITES = {
     "..d.bbbbb.d..",
     "....d.d.d....",
   ],
+  starfish: [
+    "...b...",
+    "..bbb..",
+    "bbbdbbb",
+    ".bbdbb.",
+    "..bbb..",
+    ".bb.bb.",
+    "bb...bb",
+  ],
+  seahorse: [
+    "....bb..",
+    "...bbbb.",
+    "...beb..",
+    "....bb..",
+    "f.bbbb..",
+    "fbbbb...",
+    "fbbb....",
+    ".bbb....",
+    "..bb..b.",
+    "...bbb..",
+  ],
   whale: [
     "f.....bbbbbbbbbb......",
     "ff..bbbbbbbbbbbbbb....",
@@ -205,6 +226,15 @@ const SHARK_SPRITE = [
   "...........dd.............",
 ];
 const SHARK_PAL = { b: "#5a7186", d: "#3c4f61", f: "#3c4f61" };
+const MANTIS_SPRITE = [
+  "e.e.......",
+  "bbb.......",
+  "bbbbbbb...",
+  "fbbbbbbb..",
+  "ff.bbbb...",
+  "..bb.bb...",
+];
+const MANTIS_PAL = { b: "#2fbf68", d: "#1e9e86", f: "#ff5c5c" };
 
 // species table: weight + fixed identity for specials
 const SPECIES_DEF = [
@@ -216,14 +246,20 @@ const SPECIES_DEF = [
   { key: "crab",   w: 8,  name: "ferris",   pal: { b: "#ff7043", d: "#c24a20", f: "#ff9a70" } },
   { key: "whale",  w: 5,  name: "moby",     pal: { b: "#5f8fd4", d: "#3a5e96", f: "#7fb0ea" } },
   { key: "golden", w: 4,  name: "sudo",     pal: { b: "#ffd54a", d: "#c79a1e", f: "#ffe89a" } },
+  { key: "starfish", w: 5, name: "star",    pal: { b: "#ff8a5c", d: "#c25a30", f: "#ff8a5c" } },
+  { key: "seahorse", w: 6, name: "pony" },
 ];
 
 // ---------- world state ----------
-const fishes = [], bubbles = [], flakes = [], coins = [];
+const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [];
 let t = 0, spawnedPids = new Set();
 let shark = null, sharkTimer = rnd(45000, 90000);
 let night = false;
+let breedT = rnd(20000, 40000);
+let driftT = rnd(90000, 180000);
 const CHEST = { x: 146, y: SAND_Y - 9, w: 13, h: 9, openT: 0, cooldown: 0 };
+const MANTIS = { cool: 0, show: 0, dir: 1 };
+const SAND_DWELLERS = ["crab", "starfish"];
 
 function rnd(a, b) { return a + Math.random() * (b - a); }
 function ri(a, b) { return Math.floor(rnd(a, b + 1)); }
@@ -256,9 +292,13 @@ function makeFish(forceKey) {
     ate: 0,
     inflated: false,
     puffT: rnd(8000, 20000),
+    knock: 0, kvx: 0, kvy: 0,
+    tx: rnd(20, W - 20),
   };
   if (def.key === "crab") { f.y = SAND_Y - 4; f.speed = rnd(0.05, 0.09); }
   if (def.key === "jelly") { f.speed = rnd(0.02, 0.05); }
+  if (def.key === "starfish") { f.y = SAND_Y - 3; f.speed = rnd(0.008, 0.018); }
+  if (def.key === "seahorse") { f.speed = rnd(0.03, 0.06); }
   return f;
 }
 
@@ -552,6 +592,8 @@ function drawFish(f) {
   let rows, opts = { squish: fastFrame === 1 };
   if (f.species === "jelly") { rows = JELLY_FRAMES[slowFrame]; opts = {}; }
   else if (f.species === "crab") { rows = CRAB_FRAMES[fastFrame]; opts = {}; }
+  else if (f.species === "starfish") { rows = SPRITES.starfish; opts = {}; }
+  else if (f.species === "seahorse") { rows = SPRITES.seahorse; }
   else if (f.species === "puffer" && f.inflated) { rows = SPRITES.pufferBig; opts = {}; }
   else if (f.species === "golden") { rows = SPRITES.guppy; }
   else { rows = SPRITES[f.species]; }
@@ -615,16 +657,158 @@ function update(dt) {
   if (shark) {
     shark.x += shark.dir * (reduced ? 0.4 : 0.75) * dt * 0.06;
     shark.y += Math.sin(t * 0.005) * 0.03 * dt * 0.06;
+    // first fish caught in the mouth gets eaten (one per visit)
+    if (!shark.fed) {
+      const mx = shark.x + shark.dir * 9;
+      for (let i = 0; i < fishes.length; i++) {
+        const f = fishes[i];
+        if (SAND_DWELLERS.includes(f.species) || f.species === "jelly") continue;
+        if (f.inflated) continue; // spikes: inflated puffer is inedible
+        if (Math.abs(f.x - mx) < 7 && Math.abs(f.y - shark.y) < 5) {
+          fishes.splice(i, 1);
+          shark.fed = true;
+          for (let k = 0; k < 10; k++) {
+            bubbles.push({ x: f.x + rnd(-4, 4), y: f.y + rnd(-3, 3), r: Math.random() < 0.5 ? 1 : 2, ph: rnd(0, 6) });
+          }
+          if (nonCrabCount() < MIN_FISH) {
+            setTimeout(() => {
+              if (nonCrabCount() >= MIN_FISH) return;
+              let nf; do { nf = makeFish(); } while (nf.species === "crab");
+              fishes.push(nf);
+            }, 8000);
+          }
+          break;
+        }
+      }
+    }
     if (shark.x < -35 || shark.x > W + 35) {
       shark = null;
       sharkTimer = rnd(60000, 150000);
-      log("shark left the tank — threat level: green", "ok");
     }
+  }
+
+  // mantis shrimp guards the chest: punches anything that swims too close
+  MANTIS.cool -= dt;
+  if (MANTIS.show > 0) MANTIS.show -= dt;
+  if (MANTIS.cool <= 0) {
+    for (const f of fishes) {
+      if (SAND_DWELLERS.includes(f.species) || f.knock > 0) continue;
+      if (Math.abs(f.x - (CHEST.x + 6)) < 13 && f.y > CHEST.y - 15) {
+        MANTIS.dir = f.x >= CHEST.x + 6 ? 1 : -1;
+        MANTIS.cool = 5000;
+        MANTIS.show = 1000;
+        CHEST.openT = Math.max(CHEST.openT, 1000);
+        const power = rnd(1.3, 1.9);
+        const ang = rnd(-2.2, -0.9); // launch upward-ish
+        f.knock = 2400;
+        f.kvx = Math.cos(ang) * power * MANTIS.dir;
+        f.kvy = Math.sin(ang) * power;
+        f.food = null;
+        f.inflated = f.species === "puffer"; // puffer panics
+        for (let k = 0; k < 6; k++) {
+          bubbles.push({ x: f.x + rnd(-2, 2), y: f.y + rnd(-2, 2), r: 1, ph: rnd(0, 6) });
+        }
+        break;
+      }
+    }
+  }
+
+  // breeding: a close same-species pair lays 1-2 eggs
+  breedT -= dt;
+  if (breedT <= 0) {
+    breedT = rnd(25000, 50000);
+    if (eggs.length === 0 && fishes.length < 14) {
+      outer:
+      for (let i = 0; i < fishes.length; i++) {
+        for (let j = i + 1; j < fishes.length; j++) {
+          const a = fishes[i], b = fishes[j];
+          if (a.species !== b.species) continue;
+          if (SAND_DWELLERS.includes(a.species) || a.species === "jelly") continue;
+          if (Math.hypot(a.x - b.x, a.y - b.y) < 24) {
+            const n = ri(1, 2);
+            for (let k = 0; k < n; k++) {
+              eggs.push({
+                x: (a.x + b.x) / 2 + rnd(-4, 4),
+                y: (a.y + b.y) / 2,
+                hatch: rnd(22000, 38000),
+                species: a.species,
+                pal: Math.random() < 0.5 ? a.pal : b.pal,
+              });
+            }
+            break outer;
+          }
+        }
+      }
+    }
+  }
+  // eggs sink to the sand, then hatch
+  for (let i = eggs.length - 1; i >= 0; i--) {
+    const e = eggs[i];
+    if (e.y < SAND_Y - 3) e.y += 0.04 * dt * 0.06;
+    e.hatch -= dt;
+    if (e.hatch <= 0) {
+      eggs.splice(i, 1);
+      if (fishes.length < 14) {
+        const baby = makeFish(e.species);
+        baby.x = e.x; baby.y = Math.min(e.y, SAND_Y - 12); baby.pal = e.pal;
+        if (e.species === "crab" || e.species === "starfish") baby.y = SAND_Y - 4;
+        fishes.push(baby);
+        for (let k = 0; k < 4; k++) bubbles.push({ x: e.x + rnd(-2, 2), y: e.y, r: 1, ph: rnd(0, 6) });
+      }
+    }
+  }
+
+  // occasional drifter wanders in
+  driftT -= dt;
+  if (driftT <= 0) {
+    driftT = rnd(90000, 180000);
+    if (fishes.length < 12) fishes.push(makeFish());
   }
 
   // fish
   for (const f of fishes) {
     f.retarget -= dt;
+
+    // mantis-punched: ragdoll bouncing off the glass until it recovers
+    if (f.knock > 0) {
+      f.knock -= dt;
+      f.x += f.kvx * dt * 0.06;
+      f.y += f.kvy * dt * 0.06;
+      if (f.x < 9) { f.x = 9; f.kvx = Math.abs(f.kvx) * 0.85; }
+      if (f.x > W - 9) { f.x = W - 9; f.kvx = -Math.abs(f.kvx) * 0.85; }
+      if (f.y < 8) { f.y = 8; f.kvy = Math.abs(f.kvy) * 0.85; }
+      if (f.y > SAND_Y - 7) { f.y = SAND_Y - 7; f.kvy = -Math.abs(f.kvy) * 0.85; }
+      const drag = 1 - 0.0005 * dt;
+      f.kvx *= drag; f.kvy *= drag;
+      f.dir = f.kvx >= 0 ? 1 : -1; // tumbles with each wall hit
+      if (f.knock <= 0) { f.vx = 0; f.retarget = 0; }
+      continue;
+    }
+
+    if (f.species === "starfish") {
+      // barely crawls along the sand
+      f.y = SAND_Y - 3;
+      if (f.retarget <= 0) { f.retarget = rnd(6000, 14000); if (Math.random() < 0.5) f.dir *= -1; }
+      f.x += f.dir * f.speed * nightMul * dt * 0.06;
+      if (f.x < 8) { f.x = 8; f.dir = 1; }
+      if (f.x > W - 8) { f.x = W - 8; f.dir = -1; }
+      continue;
+    }
+
+    if (f.species === "seahorse") {
+      // upright bobbing, drifts between plants
+      if (f.retarget <= 0) {
+        f.retarget = rnd(5000, 11000);
+        f.targetY = rnd(24, SAND_Y - 18);
+        f.tx = rnd(14, W - 14);
+      }
+      f.x += (f.tx - f.x) * 0.00025 * dt * nightMul;
+      f.dir = f.tx > f.x ? 1 : -1;
+      f.y += ((f.targetY - f.y) * 0.0006 + Math.sin(t * 0.003 + f.phase) * 0.012) * dt * 0.6 * nightMul;
+      f.y = Math.max(14, Math.min(SAND_Y - 12, f.y));
+      f.x = Math.max(10, Math.min(W - 10, f.x));
+      continue;
+    }
 
     if (f.species === "crab") {
       // ferris walks the sand, eats flakes that land nearby
@@ -705,10 +889,10 @@ function update(dt) {
   // separation: overlapping swimmers gently push apart (crabs stay on sand)
   for (let i = 0; i < fishes.length; i++) {
     const a = fishes[i];
-    if (a.species === "crab") continue;
+    if (SAND_DWELLERS.includes(a.species) || a.knock > 0) continue;
     for (let j = i + 1; j < fishes.length; j++) {
       const b = fishes[j];
-      if (b.species === "crab") continue;
+      if (SAND_DWELLERS.includes(b.species) || b.knock > 0) continue;
       const dx = b.x - a.x, dy = b.y - a.y;
       if (Math.abs(dx) < 11 && Math.abs(dy) < 7) {
         const push = 0.06 * dt * 0.06;
@@ -762,6 +946,13 @@ function render() {
   drawRocks();
   drawSand();
   drawChest();
+  if (MANTIS.show > 0) {
+    drawSprite(MANTIS_SPRITE, CHEST.x + 6 + MANTIS.dir * 3, CHEST.y - 4, MANTIS.dir, MANTIS_PAL, {});
+  }
+  for (const e of eggs) {
+    px(e.x, e.y, "#ffe9c9"); px(e.x + 1, e.y, "#ffe9c9");
+    px(e.x, e.y + 1, "#d9b98a"); px(e.x + 1, e.y + 1, "#d9b98a");
+  }
   for (const fl of flakes) px(fl.x, fl.y, Math.floor(t * 0.002 + fl.x) % 2 ? "#ffd27a" : "#e8a94e");
   for (const c of coins) px(c.x, c.y, Math.floor(t * 0.003 + c.x) % 2 ? "#ffd54a" : "#fff6c9");
   for (const f of fishes) drawFish(f);
