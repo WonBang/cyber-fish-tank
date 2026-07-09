@@ -278,7 +278,7 @@ const SPECIES_DEF = [
 ];
 
 // ---------- world state ----------
-const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [], hearts = [];
+const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [], hearts = [], rings = [];
 const LOVE_AT = 3; // meals before a fish trusts you enough to be named
 let t = 0, spawnedPids = new Set();
 let shark = null, sharkTimer = rnd(45000, 90000);
@@ -427,7 +427,41 @@ function summonShark() {
 
 // ---------- raid ----------
 function startRaid() {
-  raid = { phase: "warn", timer: RAID_WARN_MS, boss: null };
+  raid = { phase: "warn", timer: RAID_WARN_MS, boss: null, rallyCd: 0, retreat: 0 };
+}
+
+// click command: synchronized all-out charge
+function rallyStrike(mx, my) {
+  const b = raid.boss;
+  raid.rallyCd = 4000;
+  rings.push({ x: mx, y: my, r: 2, life: 600, col: "#46d8ff" });
+  const braves = fishes.filter(f =>
+    !SAND_DWELLERS.includes(f.species) && f.species !== "jelly" && f.knock <= 0);
+  for (const f of braves) {
+    f.aggro = true;
+    f.aggroT = rnd(1400, 2200);
+    f.aggroY = rnd(-7, 7);
+    f.dir = f.x < b.x ? 1 : -1;
+    f.thrust = 2.4;
+    f.burstT = rnd(300, 700);
+  }
+  if (braves.filter(f => Math.hypot(f.x - b.x, f.y - b.y) < 55).length >= 3) bossHit(2);
+}
+
+// click command: early mantis punch at extended range
+function mantisSortie() {
+  const b = raid.boss;
+  if (b.mcd <= 0 && Math.abs(b.x - (CHEST.x + 6)) < 36 && b.y > 40) {
+    MANTIS.dir = b.x >= CHEST.x + 6 ? 1 : -1;
+    MANTIS.show = 1100;
+    CHEST.openT = Math.max(CHEST.openT, 1100);
+    b.kvx = MANTIS.dir * 2.2;
+    b.ty = Math.max(24, b.y - 18);
+    b.mcd = 4200;
+    bossHit(3);
+  } else {
+    CHEST.openT = Math.max(CHEST.openT, 300); // lid rattles: on cooldown or out of reach
+  }
 }
 
 function bossHit(dmg) {
@@ -656,6 +690,21 @@ cv.addEventListener("click", (e) => {
   const r = cv.getBoundingClientRect();
   const mx = (e.clientX - r.left) / r.width * W;
   const my = (e.clientY - r.top) / r.height * H;
+  // during a raid fight, clicks are battle commands
+  if (raid && raid.phase === "fight") {
+    const b = raid.boss;
+    if (mx >= CHEST.x - 2 && mx <= CHEST.x + CHEST.w + 2 && my >= CHEST.y - 3 && my <= CHEST.y + CHEST.h + 2) {
+      mantisSortie();
+      return;
+    }
+    if (Math.hypot(mx - b.x, my - b.y) < 60) {
+      if (raid.rallyCd <= 0) rallyStrike(mx, my);
+      return;
+    }
+    raid.retreat = 2000; // far click: scatter, dodge the next bite
+    rings.push({ x: mx, y: my, r: 2, life: 600, col: "#e8f2fa" });
+    return;
+  }
   if (mx >= CHEST.x - 2 && mx <= CHEST.x + CHEST.w + 2 && my >= CHEST.y - 3 && my <= CHEST.y + CHEST.h + 2) {
     openChest();
     return;
@@ -965,6 +1014,8 @@ function update(dt) {
       raid.phase = "fight";
     }
   } else if (raid.phase === "fight") {
+    raid.rallyCd -= dt;
+    raid.retreat -= dt;
     updateBoss(dt);
   } else if (raid.phase === "flee") {
     const b = raid.boss;
@@ -1193,6 +1244,7 @@ function update(dt) {
         f.aggro = Math.random() < 0.7; // most of the tank fights, a few catch their breath
         f.aggroY = rnd(-9, 9);
       }
+      if (raid.retreat > 0) f.aggro = false; // scatter command overrides
       dropFood(f);
       if (f.aggro) {
         // dart at the boss flank
@@ -1278,6 +1330,14 @@ function update(dt) {
         b.x = Math.max(10, Math.min(W - 10, b.x + sx * push * 0.6));
       }
     }
+  }
+
+  // command ripple rings expand and fade
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const rg = rings[i];
+    rg.r += 0.06 * dt;
+    rg.life -= dt;
+    if (rg.life <= 0) rings.splice(i, 1);
   }
 
   // hearts drift up and fade
@@ -1374,6 +1434,15 @@ function render() {
     cx.fillRect(0, 0, W, H);
   }
   drawRaid();
+  for (const rg of rings) {
+    cx.globalAlpha = Math.max(0, rg.life / 600) * 0.8;
+    cx.fillStyle = rg.col;
+    for (let a = 0; a < 20; a++) {
+      const ang = a / 20 * Math.PI * 2;
+      cx.fillRect(Math.round(rg.x + Math.cos(ang) * rg.r), Math.round(rg.y + Math.sin(ang) * rg.r), 1, 1);
+    }
+    cx.globalAlpha = 1;
+  }
 }
 
 // ---------- loop ----------
