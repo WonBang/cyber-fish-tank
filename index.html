@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="관상용 사이버 어항 — 터미널 속에서 헤엄치는 개발자 프로세스 물고기들">
+<title>cyber-fish-tank — 관상용 사이버 어항</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --panel: #0a0f1a;
+    --chrome: #0e1524;
+    --border: #1b2a45;
+    --ink: #b8cbe4;
+    --dim: #5b7091;
+    --green: #3dff8b;
+    --cyan: #46d8ff;
+    --amber: #ffb454;
+    --pink: #ff6b9d;
+    --mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image: radial-gradient(ellipse 90% 60% at 50% -10%, #0a1626 0%, transparent 60%);
+    color: var(--ink);
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .rig { width: 100%; max-width: 780px; }
+
+  .term {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px #000,
+      0 0 42px rgba(70, 216, 255, 0.10),
+      0 24px 60px rgba(0, 0, 0, 0.6);
+  }
+  .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--chrome);
+    border-bottom: 1px solid var(--border);
+  }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #26334e; }
+  .dot.r { background: #ff5f57; } .dot.y { background: #febc2e; } .dot.g { background: #28c840; }
+  .title {
+    flex: 1;
+    text-align: center;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ver { font-size: 10px; color: #33507a; letter-spacing: 0.1em; }
+
+  .tankwrap { position: relative; background: #04101e; }
+  canvas {
+    display: block;
+    width: 100%;
+    image-rendering: pixelated;
+    cursor: crosshair;
+  }
+  .scanlines {
+    position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.14) 2px, rgba(0,0,0,0.14) 3px);
+    mix-blend-mode: multiply;
+  }
+  .vignette {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 120% 100% at 50% 45%, transparent 55%, rgba(2,6,12,0.55) 100%);
+  }
+
+  .console {
+    border-top: 1px solid var(--border);
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .cmdrow { display: flex; flex-wrap: wrap; gap: 8px; }
+  button {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--green);
+    background: #0c1626;
+    border: 1px solid #1d3050;
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  button:hover { background: #12203a; border-color: #2a4a78; }
+  button:active { transform: translateY(1px); }
+  button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+  button.danger { color: var(--pink); }
+  button .p { color: var(--dim); }
+
+  .statusbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-size: 11px;
+    color: var(--dim);
+    padding: 8px 10px;
+    background: #081120;
+    border: 1px solid #14233d;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .statusbar b { color: var(--ink); font-weight: 500; }
+  .live { color: var(--green); }
+  .live::before { content: "●"; margin-right: 6px; animation: blink 2.4s steps(1) infinite; }
+  @keyframes blink { 0%, 70% { opacity: 1; } 71%, 100% { opacity: 0.25; } }
+  #hoverinfo { color: var(--cyan); min-height: 14px; }
+
+  .log {
+    font-size: 11px;
+    line-height: 1.7;
+    color: #46608a;
+    height: 96px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .log .t { color: #2e4468; margin-right: 8px; }
+  .log .ok { color: var(--green); }
+  .log .warn { color: var(--amber); }
+  .log .err { color: var(--pink); }
+
+  .foot {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 10px;
+    color: #2c4066;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live::before { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="rig">
+  <div class="term">
+    <div class="titlebar">
+      <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+      <div class="title">wonjun@tank: ~/cyber-fish-tank — 관상용 사이버 어항</div>
+      <div class="ver">v1.3.0</div>
+    </div>
+    <div class="tankwrap">
+      <canvas id="tank" width="192" height="120" aria-label="픽셀 아트 사이버 어항. 물고기들이 헤엄치는 애니메이션."></canvas>
+      <div class="scanlines"></div>
+      <div class="vignette"></div>
+    </div>
+    <div class="console">
+      <div class="cmdrow">
+        <button id="btn-feed"><span class="p">$</span> ./feed.sh</button>
+        <button id="btn-spawn"><span class="p">$</span> ./spawn.sh --random</button>
+        <button id="btn-kill" class="danger"><span class="p">$</span> kill -9 $RANDOM</button>
+        <button id="btn-shark" class="danger"><span class="p">$</span> sudo ./shark</button>
+        <button id="btn-night"><span class="p">$</span> ./night.sh</button>
+      </div>
+      <div class="statusbar">
+        <span class="live">RUNNING</span>
+        <span>uptime <b id="s-uptime">00:00:00</b></span>
+        <span>fish <b id="s-fish">0</b></span>
+        <span>bubbles <b id="s-bub">0</b></span>
+        <span><b id="s-fps">60</b> fps</span>
+        <span id="hoverinfo"></span>
+      </div>
+      <div class="log" id="log" aria-live="polite"></div>
+    </div>
+  </div>
+  <div class="foot">click water to feed · click chest to loot · feed 5 flakes = 👑 promotion · no fish were harmed in this process table</div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const W = 192, H = 120, SAND_Y = 108;
+const cv = document.getElementById("tank");
+const cx = cv.getContext("2d");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---------- palette ----------
+const FISH_PALETTES = [
+  { b: "#3dff8b", d: "#1fae5c", f: "#17d96b" },  // phosphor green
+  { b: "#46d8ff", d: "#1f8fb8", f: "#7ae6ff" },  // cyan
+  { b: "#ffb454", d: "#c47816", f: "#ffd27a" },  // amber
+  { b: "#ff6b9d", d: "#c23f6e", f: "#ff9dc0" },  // coral pink
+  { b: "#b18cff", d: "#7a5cc4", f: "#d0baff" },  // violet
+  { b: "#ff5c5c", d: "#b83030", f: "#ffb454" },  // red, amber fin
+  { b: "#38e8c8", d: "#1e9e86", f: "#a0ffe8" },  // seafoam
+  { b: "#c8f04a", d: "#8aab24", f: "#e8ff9a" },  // lime
+  { b: "#ff8c42", d: "#c2591c", f: "#46d8ff" },  // clownfish orange, cyan fin
+  { b: "#7aa8ff", d: "#4a6fc2", f: "#ff6b9d" },  // ice blue, pink fin
+  { b: "#f06ee6", d: "#b03aa8", f: "#7ae6ff" },  // magenta, cyan fin
+  { b: "#e8e8f0", d: "#9a9ab0", f: "#ff5c5c" },  // koi silver, red fin
+];
+const MIN_FISH = 7; // minimum non-crab population
+const NAMES = ["node","vim","rustc","gcc","cargo","docker","tmux","zsh","git","deno","curl","grep","nvim","make","ssh","jq"];
+
+// ---------- sprites (facing right, tail = f on left) ----------
+const SPRITES = {
+  tetra: [
+    "f..bbbb..",
+    "ff.bbbbb.",
+    "ffbbbbeb.",
+    "ff.bbbbb.",
+    "f..bbbb..",
+  ],
+  guppy: [
+    "ff....bbb...",
+    "fff..bbbbbb.",
+    ".fffbbbbbeb.",
+    ".fffbbbbbbbb",
+    "fff..bbbbbb.",
+    "ff....bbb...",
+  ],
+  angel: [
+    "....d.....",
+    "...ddd....",
+    "f..bbbb...",
+    "ff.bbbbeb.",
+    "ffbbbbbbbb",
+    "ff.bbbbbb.",
+    "f..bbbb...",
+    "...ddd....",
+    "....d.....",
+  ],
+  puffer: [
+    "f...bbbb..",
+    "ff.bbbbbb.",
+    "ffbbbbbeb.",
+    "ffbbbbbbbb",
+    "ffbbbbbbb.",
+    "ff.bbbbbb.",
+    "f...bbbb..",
+  ],
+  pufferBig: [
+    "....d.d.d....",
+    "..d.bbbbb.d..",
+    "...bbbbbbb...",
+    ".d.bbbbbeb.d.",
+    "f.bbbbbbbbb..",
+    "fdbbbbbbbbbd.",
+    "f.bbbbbbbbb..",
+    ".d.bbbbbbb.d.",
+    "...bbbbbbb...",
+    "..d.bbbbb.d..",
+    "....d.d.d....",
+  ],
+  whale: [
+    "f.....bbbbbbbbbb......",
+    "ff..bbbbbbbbbbbbbb....",
+    ".ffbbbbbbbbbbbbbbbbb..",
+    ".fbbbbbbbbbbbbbbbbebb.",
+    "ffbbbbbbbbbbbbbbbbbbbb",
+    ".fbbbbbbbbbbbbbbbbbbb.",
+    "..bbbbbbbbbbbbbbbbbb..",
+    "...dddddddddddddd.....",
+    "....d..d..d..d........",
+  ],
+};
+const JELLY_FRAMES = [
+  [
+    "..bbbbb..",
+    ".bbbbbbb.",
+    ".bebbbeb.",
+    ".bbbbbbb.",
+    "..f.f.f..",
+    "..f.f.f..",
+    ".f..f..f.",
+  ],
+  [
+    "..bbbbb..",
+    ".bbbbbbb.",
+    ".bebbbeb.",
+    ".bbbbbbb.",
+    "..f.f.f..",
+    ".f..f..f.",
+    "..f.f.f..",
+  ],
+];
+const CRAB_FRAMES = [
+  [
+    ".e.......e.",
+    ".b.......b.",
+    "..bbbbbbb..",
+    ".bbbbbbbbb.",
+    "f.bbbbbbb.f",
+    ".f.b.b.b.f.",
+    "..d..d..d..",
+  ],
+  [
+    ".e.......e.",
+    ".b.......b.",
+    "..bbbbbbb..",
+    ".bbbbbbbbb.",
+    "f.bbbbbbb.f",
+    ".f.b.b.b.f.",
+    ".d..d..d...",
+  ],
+];
+const SHARK_SPRITE = [
+  "..........dd..............",
+  ".........dddd.............",
+  "d.......bbbbbbbb..........",
+  "dd....bbbbbbbbbbbbb.......",
+  "ddd.bbbbbbbbbbbbbbbbbeb...",
+  "ddbbbbbbbbbbbbbbbbbbbbbbww",
+  "ddd.bbbbbbbbbbbbbbbbbbb...",
+  "dd....bbbbbbbbbbbbbb......",
+  "d.......bbbdd.............",
+  "...........dd.............",
+];
+const SHARK_PAL = { b: "#5a7186", d: "#3c4f61", f: "#3c4f61" };
+
+// species table: weight + fixed identity for specials
+const SPECIES_DEF = [
+  { key: "tetra",  w: 22 },
+  { key: "guppy",  w: 22 },
+  { key: "angel",  w: 16 },
+  { key: "puffer", w: 14, name: "puffy",    pal: { b: "#c8b45a", d: "#8a7a2e", f: "#e0d07a" } },
+  { key: "jelly",  w: 10, name: "jellyfin", pal: { b: "#b18cff", d: "#7a5cc4", f: "#8fb8ff" } },
+  { key: "crab",   w: 8,  name: "ferris",   pal: { b: "#ff7043", d: "#c24a20", f: "#ff9a70" } },
+  { key: "whale",  w: 5,  name: "moby",     pal: { b: "#5f8fd4", d: "#3a5e96", f: "#7fb0ea" } },
+  { key: "golden", w: 4,  name: "sudo",     pal: { b: "#ffd54a", d: "#c79a1e", f: "#ffe89a" } },
+];
+
+// ---------- world state ----------
+const fishes = [], bubbles = [], flakes = [], coins = [];
+let t = 0, spawnedPids = new Set();
+let shark = null, sharkTimer = rnd(45000, 90000);
+let night = false;
+const CHEST = { x: 146, y: SAND_Y - 9, w: 13, h: 9, openT: 0, cooldown: 0 };
+
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function ri(a, b) { return Math.floor(rnd(a, b + 1)); }
+
+function pickSpecies() {
+  const total = SPECIES_DEF.reduce((s, d) => s + d.w, 0);
+  let roll = Math.random() * total;
+  for (const d of SPECIES_DEF) { roll -= d.w; if (roll <= 0) return d; }
+  return SPECIES_DEF[0];
+}
+
+function makeFish(forceKey) {
+  const def = forceKey ? SPECIES_DEF.find(d => d.key === forceKey) : pickSpecies();
+  const pal = def.pal || FISH_PALETTES[ri(0, FISH_PALETTES.length - 1)];
+  let pid; do { pid = ri(100, 9999); } while (spawnedPids.has(pid));
+  spawnedPids.add(pid);
+  const f = {
+    species: def.key, pal,
+    name: def.name || NAMES[ri(0, NAMES.length - 1)],
+    pid,
+    x: rnd(20, W - 20),
+    y: rnd(16, SAND_Y - 24),
+    dir: Math.random() < 0.5 ? 1 : -1,
+    vx: 0,
+    speed: def.key === "whale" ? rnd(0.07, 0.11) : rnd(0.18, 0.34),
+    targetY: 0,
+    phase: rnd(0, Math.PI * 2),
+    retarget: 0,
+    food: null,
+    ate: 0,
+    inflated: false,
+    puffT: rnd(8000, 20000),
+  };
+  if (def.key === "crab") { f.y = SAND_Y - 4; f.speed = rnd(0.05, 0.09); }
+  if (def.key === "jelly") { f.speed = rnd(0.02, 0.05); }
+  return f;
+}
+
+// sand dither pattern (fixed noise)
+const sandNoise = [];
+for (let y = 0; y < H - SAND_Y; y++) {
+  sandNoise.push(Array.from({ length: W }, () => Math.random()));
+}
+// ---------- plants ----------
+const KELP_DAY = ["#136e3a", "#22b35c", "#3dff8b"];
+const KELP_NIGHT = ["#0b4426", "#14733c", "#25b45f"];
+const BUSH_DAY = ["#0e6b35", "#179447", "#27c46a"];
+const BUSH_NIGHT = ["#093f21", "#0f5c2e", "#177a41"];
+const GLOW_CYCLE = ["#46d8ff", "#ff6b9d", "#3dff8b", "#ffd54a"];
+
+function makePlant(type, x, h, front) {
+  const p = { type, x, h, front, ph: rnd(0, 6.28) };
+  if (type === "grass") {
+    p.blades = Array.from({ length: ri(3, 5) }, (_, i) => ({
+      dx: i - 2 + ri(0, 1), h: ri(6, 13), ph: rnd(0, 6.28),
+    }));
+  }
+  if (type === "bush") {
+    p.pix = [];
+    const rx = ri(3, 5), ry = ri(4, 6);
+    for (let dy = -ry; dy <= 0; dy++) {
+      for (let dx = -rx; dx <= rx; dx++) {
+        if ((dx / rx) ** 2 + ((dy + ry * 0.2) / ry) ** 2 < 1 && Math.random() > 0.22) {
+          p.pix.push([dx, dy - ry, ri(0, 2)]);
+        }
+      }
+    }
+    p.ry = ry;
+  }
+  if (type === "coral") {
+    p.pix = []; p.polyps = [];
+    const strands = ri(3, 4);
+    for (let s = 0; s < strands; s++) {
+      let dx = 0, drift = (s - (strands - 1) / 2) * 0.55;
+      const len = ri(7, 12);
+      for (let i = 0; i < len; i++) {
+        dx += drift * 0.35 + rnd(-0.3, 0.3);
+        p.pix.push([Math.round(dx), -1 - i, i > len - 3 ? 1 : 0]);
+      }
+      p.polyps.push([Math.round(dx), -len, rnd(0, 6.28)]);
+    }
+  }
+  if (type === "fiber") {
+    const n = ri(3, 5);
+    p.strands = Array.from({ length: n }, (_, i) => ({
+      spread: (i - (n - 1) / 2) * 0.5,
+      len: ri(Math.max(8, h - 8), h),
+      ci: ri(0, GLOW_CYCLE.length - 1),
+      ph: rnd(0, 6.28),
+    }));
+  }
+  return p;
+}
+
+const plants = [
+  ["kelp", 8, 42, false], ["grass", 24, 0, false], ["bush", 38, 0, false],
+  ["coral", 58, 0, false], ["kelp", 71, 30, false], ["fiber", 112, 26, false],
+  ["grass", 124, 0, false], ["kelp", 138, 36, false], ["bush", 168, 0, false],
+  ["grass", 182, 0, false],
+  ["grass", 14, 0, true], ["fiber", 50, 20, true], ["kelp", 163, 22, true], ["grass", 176, 0, true],
+].map(([ty, x, h, fr]) => makePlant(ty, x, h, fr));
+
+// ---------- log ----------
+const logEl = document.getElementById("log");
+const logs = [];
+function clock() {
+  const s = Math.floor((Date.now() - t0) / 1000);
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+function log(msg, cls) {
+  logs.push(`<div><span class="t">[${clock()}]</span><span class="${cls || ""}">${msg}</span></div>`);
+  while (logs.length > 6) logs.shift();
+  logEl.innerHTML = logs.join("");
+}
+
+// ---------- actions ----------
+function feed(px) {
+  const n = ri(3, 5);
+  for (let i = 0; i < n; i++) {
+    flakes.push({ x: (px ?? rnd(30, W - 30)) + rnd(-8, 8), y: rnd(2, 8), vy: rnd(0.08, 0.16), life: 1400 });
+  }
+  log(`feed.sh: ${n} flakes dropped`, "ok");
+}
+function spawn() {
+  if (fishes.length >= 14) { log("spawn.sh: E_TANK_FULL (max 14)", "warn"); return; }
+  const f = makeFish();
+  fishes.push(f);
+  if (f.species === "golden") log(`✨ RARE DROP: ${f.name} (pid ${f.pid}) — root privileges granted`, "warn");
+  else log(`spawned ${f.name} (pid ${f.pid}) [${f.species}]`, "ok");
+}
+function nonCrabCount() { return fishes.filter(f => f.species !== "crab").length; }
+
+function kill9() {
+  if (fishes.length <= 1) { log("kill: refusing — last fish is init (pid 1)", "warn"); return; }
+  const i = ri(0, fishes.length - 1);
+  const f = fishes.splice(i, 1)[0];
+  for (let k = 0; k < 8; k++) bubbles.push({ x: f.x + rnd(-3, 3), y: f.y + rnd(-2, 2), r: Math.random() < 0.5 ? 1 : 2, ph: rnd(0, 6) });
+  log(`[SIGKILL] pid ${f.pid} (${f.name}) terminated`, "err");
+  // population floor: supervisor auto-respawns below MIN_FISH
+  if (nonCrabCount() < MIN_FISH) {
+    setTimeout(() => {
+      if (nonCrabCount() >= MIN_FISH) return;
+      let nf; do { nf = makeFish(); } while (nf.species === "crab");
+      fishes.push(nf);
+      log(`systemd: fish.service auto-restarted → ${nf.name} (pid ${nf.pid})`, "warn");
+    }, 3000);
+  }
+}
+function summonShark() {
+  if (shark) { log("shark: already in tank (EBUSY)", "warn"); return; }
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  shark = { x: dir === 1 ? -30 : W + 30, y: rnd(30, 70), dir };
+  log("[WARN] unauthorized sudo shark detected — all fish scattering", "warn");
+}
+function toggleNight() {
+  night = !night;
+  document.querySelector("#btn-night").innerHTML =
+    night ? '<span class="p">$</span> ./day.sh' : '<span class="p">$</span> ./night.sh';
+  log(night ? "cron: night mode enabled — fish entering sleep(8h)" : "cron: sunrise — SIGCONT sent to all fish", "ok");
+}
+function openChest() {
+  if (CHEST.cooldown > 0) { log("chest: locked (retry after cooldown)", "warn"); return; }
+  CHEST.openT = 3000;
+  CHEST.cooldown = 12000;
+  const loot = ri(3, 9);
+  for (let i = 0; i < loot; i++) {
+    coins.push({ x: CHEST.x + 6 + rnd(-3, 3), y: CHEST.y, vy: -rnd(0.15, 0.35), life: rnd(600, 1100) });
+  }
+  for (let i = 0; i < 5; i++) bubbles.push({ x: CHEST.x + 6 + rnd(-4, 4), y: CHEST.y, r: 1, ph: rnd(0, 6) });
+  log(`loot: ${loot} gold coins (unused variables)`, "ok");
+}
+document.getElementById("btn-feed").addEventListener("click", () => feed());
+document.getElementById("btn-spawn").addEventListener("click", spawn);
+document.getElementById("btn-kill").addEventListener("click", kill9);
+document.getElementById("btn-shark").addEventListener("click", summonShark);
+document.getElementById("btn-night").addEventListener("click", toggleNight);
+
+cv.addEventListener("click", (e) => {
+  const r = cv.getBoundingClientRect();
+  const mx = (e.clientX - r.left) / r.width * W;
+  const my = (e.clientY - r.top) / r.height * H;
+  if (mx >= CHEST.x - 2 && mx <= CHEST.x + CHEST.w + 2 && my >= CHEST.y - 3 && my <= CHEST.y + CHEST.h + 2) {
+    openChest();
+    return;
+  }
+  feed(mx);
+});
+
+// hover: nearest fish info
+const hoverEl = document.getElementById("hoverinfo");
+cv.addEventListener("mousemove", (e) => {
+  const r = cv.getBoundingClientRect();
+  const mx = (e.clientX - r.left) / r.width * W;
+  const my = (e.clientY - r.top) / r.height * H;
+  let best = null, bd = 12;
+  for (const f of fishes) {
+    const d = Math.hypot(f.x - mx, f.y - my);
+    if (d < bd) { bd = d; best = f; }
+  }
+  hoverEl.textContent = best
+    ? `▸ ${best.name} · pid ${best.pid} · ${best.species} · cpu ${(best.speed * 3).toFixed(1)}% · ate ${best.ate}${best.ate >= 5 ? " 👑" : ""}`
+    : "";
+});
+cv.addEventListener("mouseleave", () => { hoverEl.textContent = ""; });
+
+// ---------- drawing ----------
+function px(x, y, c) { cx.fillStyle = c; cx.fillRect(x | 0, y | 0, 1, 1); }
+
+const WATER_BANDS = ["#10233c", "#0d1d33", "#0a172a", "#081222", "#060d1a"];
+const NIGHT_BANDS = ["#0a1228", "#08101f", "#060b18", "#040812", "#03050c"];
+function drawWater() {
+  const bands = night ? NIGHT_BANDS : WATER_BANDS;
+  const bandH = SAND_Y / bands.length;
+  for (let i = 0; i < bands.length; i++) {
+    cx.fillStyle = bands[i];
+    cx.fillRect(0, i * bandH | 0, W, Math.ceil(bandH) + 1);
+  }
+  // dither band seams
+  cx.fillStyle = night ? "rgba(140,160,255,0.04)" : "rgba(70,216,255,0.05)";
+  for (let i = 1; i < bands.length; i++) {
+    const y = (i * bandH) | 0;
+    for (let x = (i % 2); x < W; x += 2) cx.fillRect(x, y, 1, 1);
+  }
+  // surface shimmer
+  cx.fillStyle = night ? "#12213d" : "#1e3d63";
+  for (let x = 0; x < W; x += 2) {
+    const o = Math.sin(t * 0.03 + x * 0.4) > 0.2 ? 0 : 1;
+    cx.fillRect(x, o, 2, 1);
+  }
+  if (night) {
+    // single moonbeam
+    cx.fillStyle = "rgba(180,200,255,0.05)";
+    const rx = 96 + Math.sin(t * 0.002) * 10;
+    cx.fillRect(rx | 0, 2, 10, SAND_Y - 2);
+    // plankton glow specks
+    cx.fillStyle = "rgba(120,255,190,0.5)";
+    for (let i = 0; i < 8; i++) {
+      const gx = (i * 53 + Math.floor(t * 0.006) * (i + 3)) % W;
+      const gy = 10 + (i * 37) % (SAND_Y - 24);
+      if (Math.floor(t * 0.004 + i) % 3 === 0) cx.fillRect(gx, gy, 1, 1);
+    }
+  } else {
+    // light rays
+    cx.fillStyle = "rgba(120,210,255,0.045)";
+    for (let i = 0; i < 3; i++) {
+      const rx = 30 + i * 58 + Math.sin(t * 0.004 + i * 2) * 6;
+      cx.fillRect(rx | 0, 2, 7, SAND_Y - 2);
+    }
+  }
+}
+
+function drawSand() {
+  for (let y = SAND_Y; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const n = sandNoise[y - SAND_Y][x];
+      px(x, y, n < 0.12 ? "#3a4d63" : n < 0.55 ? "#233246" : "#1b2839");
+    }
+  }
+}
+
+const SWAY = () => (reduced ? 0.3 : 1);
+
+function drawKelp(p) {
+  const shades = night ? KELP_NIGHT : KELP_DAY;
+  for (let i = 0; i < p.h; i++) {
+    const y = SAND_Y - 1 - i;
+    const fr = i / p.h;
+    const off = Math.round(Math.sin(t * 0.016 + p.ph + i * 0.2) * SWAY() * fr * 3);
+    const col = fr > 0.78 ? shades[2] : fr > 0.42 ? shades[1] : shades[0];
+    px(p.x + off, y, col);
+    // alternating leaves
+    if (i % 4 === 2 && i < p.h - 2) {
+      const side = (i % 8 < 4) ? 1 : -1;
+      px(p.x + off + side, y, col);
+      px(p.x + off + side * 2, y, fr > 0.5 ? shades[1] : shades[0]);
+      px(p.x + off + side * 2, y - 1, shades[0]);
+    }
+  }
+  // luminous tip
+  const tipOff = Math.round(Math.sin(t * 0.016 + p.ph + p.h * 0.2) * SWAY() * 3);
+  px(p.x + tipOff, SAND_Y - p.h, night ? "#3dff8b" : "#8dffc0");
+}
+
+function drawGrass(p) {
+  const shades = night ? KELP_NIGHT : KELP_DAY;
+  for (const b of p.blades) {
+    for (let i = 0; i < b.h; i++) {
+      const y = SAND_Y - 1 - i;
+      const off = Math.round(Math.sin(t * 0.024 + b.ph + i * 0.3) * SWAY() * (i / b.h) * 2.2);
+      px(p.x + b.dx + off, y, i > b.h - 3 ? shades[2] : i > b.h / 2 ? shades[1] : shades[0]);
+    }
+  }
+}
+
+function drawBush(p) {
+  const shades = night ? BUSH_NIGHT : BUSH_DAY;
+  const off = Math.round(Math.sin(t * 0.012 + p.ph) * SWAY());
+  for (const [dx, dy, ci] of p.pix) {
+    const topHalf = dy < -p.ry;
+    px(p.x + dx + (topHalf ? off : 0), SAND_Y - 1 + dy + p.ry, shades[ci]);
+  }
+}
+
+function drawCoral(p) {
+  const body = night ? "#8a3352" : "#c2436f";
+  const tip = night ? "#c2436f" : "#ff6b9d";
+  for (const [dx, dy, ci] of p.pix) px(p.x + dx, SAND_Y - 1 + dy, ci ? tip : body);
+  for (const [dx, dy, ph] of p.polyps) {
+    const on = Math.sin(t * 0.004 + ph) > 0.4;
+    px(p.x + dx, SAND_Y - 1 + dy, on ? "#ffd6e6" : tip);
+  }
+}
+
+function drawFiber(p) {
+  const stem = night ? "#26364e" : "#1c2a3f";
+  for (const s of p.strands) {
+    let sx = p.x;
+    for (let i = 0; i < s.len; i++) {
+      const y = SAND_Y - 1 - i;
+      const curve = s.spread * (i / s.len) * 4;
+      const off = Math.sin(t * 0.014 + s.ph + i * 0.15) * SWAY() * (i / s.len) * 1.5;
+      sx = p.x + Math.round(curve + off);
+      px(sx, y, stem);
+    }
+    // glowing tip: pulses, brighter at night
+    const gy = SAND_Y - 1 - s.len;
+    const col = GLOW_CYCLE[(s.ci + Math.floor(t * 0.0008)) % GLOW_CYCLE.length];
+    const pulse = Math.sin(t * 0.006 + s.ph) * 0.5 + 0.5;
+    px(sx, gy, col);
+    cx.globalAlpha = (night ? 0.5 : 0.25) * pulse;
+    cx.fillStyle = col;
+    cx.fillRect(sx - 1, gy, 1, 1); cx.fillRect(sx + 1, gy, 1, 1);
+    cx.fillRect(sx, gy - 1, 1, 1); cx.fillRect(sx, gy + 1, 1, 1);
+    cx.globalAlpha = 1;
+  }
+}
+
+const PLANT_DRAW = { kelp: drawKelp, grass: drawGrass, bush: drawBush, coral: drawCoral, fiber: drawFiber };
+function drawPlant(p) { PLANT_DRAW[p.type](p); }
+
+function drawServer() {
+  // sunken server rack, 14w x 20h at x=86
+  const X = 86, Y = SAND_Y - 20;
+  cx.fillStyle = "#1c2433"; cx.fillRect(X, Y, 14, 20);
+  cx.fillStyle = "#2a3547"; cx.fillRect(X, Y, 14, 1); cx.fillRect(X, Y, 1, 20);
+  cx.fillStyle = "#121826"; cx.fillRect(X + 13, Y, 1, 20); cx.fillRect(X, Y + 19, 14, 1);
+  for (let u = 0; u < 4; u++) {
+    const uy = Y + 2 + u * 5;
+    cx.fillStyle = "#0d1320"; cx.fillRect(X + 2, uy, 10, 3);
+    const on = Math.floor(t * 0.02 + u * 1.7) % 3 !== 0;
+    px(X + 3, uy + 1, on ? "#3dff8b" : "#14532d");
+    px(X + 5, uy + 1, Math.floor(t * 0.013 + u) % 2 ? "#46d8ff" : "#123a4d");
+    cx.fillStyle = "#2a3547"; cx.fillRect(X + 7, uy + 1, 4, 1);
+  }
+  // vent bubbles occasionally handled in update()
+}
+
+function drawSprite(rows, cxr, cyr, dir, pal, opts) {
+  const h = rows.length, w = rows[0].length;
+  const ox = Math.round(cxr - w / 2), oy = Math.round(cyr - h / 2);
+  for (let r = 0; r < h; r++) {
+    for (let c = 0; c < w; c++) {
+      let ch = rows[r][c];
+      if (ch === ".") continue;
+      if (ch === "f" && opts && opts.squish && c < 2) continue;
+      const drawC = dir === 1 ? c : w - 1 - c;
+      let col;
+      if (ch === "b") col = r === 0 || r === h - 1 ? pal.d : pal.b;
+      else if (ch === "f") col = pal.f;
+      else if (ch === "d") col = pal.d;
+      else if (ch === "e") col = "#0a0e14";
+      else if (ch === "w") col = "#e8f2fa";
+      px(ox + drawC, oy + r, col);
+    }
+  }
+  return { ox, oy, w, h };
+}
+
+function drawFish(f) {
+  const fastFrame = Math.floor(t * (reduced ? 0.04 : 0.09)) % 2;
+  const slowFrame = Math.floor(t * (reduced ? 0.002 : 0.004)) % 2;
+  let rows, opts = { squish: fastFrame === 1 };
+  if (f.species === "jelly") { rows = JELLY_FRAMES[slowFrame]; opts = {}; }
+  else if (f.species === "crab") { rows = CRAB_FRAMES[fastFrame]; opts = {}; }
+  else if (f.species === "puffer" && f.inflated) { rows = SPRITES.pufferBig; opts = {}; }
+  else if (f.species === "golden") { rows = SPRITES.guppy; }
+  else { rows = SPRITES[f.species]; }
+  const box = drawSprite(rows, f.x, f.y, f.dir, f.pal, opts);
+  // senior fish crown
+  if (f.ate >= 5) {
+    cx.fillStyle = "#ffd54a";
+    const hx = Math.round(f.x) + (f.dir === 1 ? 2 : -2);
+    cx.fillRect(hx - 1, box.oy - 2, 3, 1);
+    px(hx - 1, box.oy - 3, "#ffd54a"); px(hx + 1, box.oy - 3, "#ffd54a");
+  }
+  // golden sudo sparkle
+  if (f.species === "golden" && Math.floor(t * 0.02) % 3 === 0) {
+    px(f.x + rnd(-7, 7), f.y + rnd(-5, 5), Math.random() < 0.5 ? "#fff6c9" : "#ffd54a");
+  }
+}
+
+function drawShark() {
+  if (!shark) return;
+  drawSprite(SHARK_SPRITE, shark.x, shark.y, shark.dir, SHARK_PAL, {});
+}
+
+function drawChest() {
+  const X = CHEST.x, Y = CHEST.y, open = CHEST.openT > 0;
+  // base
+  cx.fillStyle = "#6b4a2a"; cx.fillRect(X, Y + 3, 13, 6);
+  cx.fillStyle = "#4a3018"; cx.fillRect(X, Y + 8, 13, 1); cx.fillRect(X + 6, Y + 3, 1, 6);
+  cx.fillStyle = "#8a6236"; cx.fillRect(X, Y + 3, 13, 1);
+  // lid
+  if (open) {
+    cx.fillStyle = "#6b4a2a"; cx.fillRect(X - 1, Y - 3, 13, 2);
+    cx.fillStyle = "#8a6236"; cx.fillRect(X - 1, Y - 4, 13, 1);
+    // glow from inside
+    cx.fillStyle = Math.floor(t * 0.02) % 2 ? "#ffd54a" : "#ffe89a";
+    cx.fillRect(X + 2, Y + 2, 9, 1);
+  } else {
+    cx.fillStyle = "#6b4a2a"; cx.fillRect(X, Y, 13, 3);
+    cx.fillStyle = "#8a6236"; cx.fillRect(X, Y, 13, 1);
+    cx.fillStyle = "#c79a1e"; cx.fillRect(X + 5, Y + 2, 3, 3); // lock
+    px(X + 6, Y + 3, "#4a3018");
+  }
+}
+
+// ---------- update ----------
+function eat(f, fl) {
+  fl.life = 0;
+  f.ate++;
+  if (f.ate === 5) log(`${f.name}[${f.pid}] promoted to senior fish 👑`, "ok");
+  else log(`${f.name}[${f.pid}] ate flake · exit 0`, "ok");
+  f.food = null;
+  f.retarget = 0;
+}
+
+function update(dt) {
+  t += dt;
+  const nightMul = night ? 0.5 : 1;
+
+  // shark event
+  sharkTimer -= dt;
+  if (!shark && sharkTimer <= 0) { summonShark(); }
+  if (shark) {
+    shark.x += shark.dir * (reduced ? 0.4 : 0.75) * dt * 0.06;
+    shark.y += Math.sin(t * 0.005) * 0.03 * dt * 0.06;
+    if (shark.x < -35 || shark.x > W + 35) {
+      shark = null;
+      sharkTimer = rnd(60000, 150000);
+      log("shark left the tank — threat level: green", "ok");
+    }
+  }
+
+  // fish
+  for (const f of fishes) {
+    f.retarget -= dt;
+
+    if (f.species === "crab") {
+      // ferris walks the sand, eats flakes that land nearby
+      f.y = SAND_Y - 4;
+      if (f.retarget <= 0) { f.retarget = rnd(2500, 7000); if (Math.random() < 0.5) f.dir *= -1; }
+      let snack = null;
+      for (const fl of flakes) {
+        if (fl.y > SAND_Y - 8 && Math.abs(fl.x - f.x) < 40) { snack = fl; break; }
+      }
+      if (snack) {
+        f.dir = snack.x > f.x ? 1 : -1;
+        if (Math.abs(snack.x - f.x) < 5) eat(f, snack);
+      }
+      f.x += f.dir * f.speed * nightMul * dt * 0.06;
+      if (f.x < 10) { f.x = 10; f.dir = 1; }
+      if (f.x > W - 10) { f.x = W - 10; f.dir = -1; }
+      continue;
+    }
+
+    if (f.species === "jelly") {
+      // jellyfin drifts and pulses, ignores food and sharks
+      f.y += (Math.sin(t * 0.0015 + f.phase) * 0.06 - 0.005) * dt * 0.06 * nightMul;
+      f.x += Math.sin(t * 0.0008 + f.phase * 2) * 0.04 * dt * 0.06 * nightMul;
+      f.y = Math.max(12, Math.min(SAND_Y - 14, f.y));
+      f.x = Math.max(10, Math.min(W - 10, f.x));
+      continue;
+    }
+
+    // puffer inflation: scheduled hiccups + shark proximity
+    if (f.species === "puffer") {
+      f.puffT -= dt;
+      const sharkNear = shark && Math.abs(shark.x - f.x) < 55;
+      const wasInflated = f.inflated;
+      f.inflated = sharkNear || f.puffT < 3000;
+      if (f.puffT < 0) f.puffT = rnd(12000, 26000);
+      if (f.inflated && !wasInflated) log(`${f.name}[${f.pid}] inflated — stack overflow`, "warn");
+    }
+
+    // flee shark
+    if (shark && Math.abs(shark.x - f.x) < 75) {
+      f.dir = f.x < shark.x ? -1 : 1;
+      f.targetY = f.y < shark.y ? 16 : SAND_Y - 14;
+      f.food = null;
+    } else {
+      // choose food target
+      if (!f.food || f.food.life <= 0) {
+        f.food = null;
+        let bd = 70;
+        for (const fl of flakes) {
+          const d = Math.hypot(fl.x - f.x, fl.y - f.y);
+          if (d < bd) { bd = d; f.food = fl; }
+        }
+      }
+      if (f.food) {
+        f.dir = f.food.x > f.x ? 1 : -1;
+        f.targetY = f.food.y;
+        // box check: grounded flakes sit below the swim clamp, so allow extra vertical reach
+        if (Math.abs(f.food.x - f.x) < 5 && Math.abs(f.food.y - f.y) < 8) eat(f, f.food);
+      } else if (f.retarget <= 0) {
+        f.retarget = rnd(2000, 6000);
+        f.targetY = rnd(14, SAND_Y - 26);
+        if (Math.random() < 0.35) f.dir *= -1;
+      }
+    }
+
+    let sp = f.food ? f.speed * 1.9 : f.speed;
+    if (shark && Math.abs(shark.x - f.x) < 75) sp = f.speed * 2.6;
+    if (f.inflated) sp = f.speed * 0.3;
+    sp *= nightMul;
+    f.vx += (f.dir * sp - f.vx) * 0.02 * dt * 0.06;
+    f.x += f.vx * dt * 0.06;
+    f.y += ((f.targetY - f.y) * 0.0009 + Math.sin(t * 0.004 + f.phase) * 0.004) * dt * 0.6;
+    if (f.x < 12) { f.x = 12; f.dir = 1; }
+    if (f.x > W - 12) { f.x = W - 12; f.dir = -1; }
+    f.y = Math.max(10, Math.min(SAND_Y - 8, f.y));
+  }
+
+  // separation: overlapping swimmers gently push apart (crabs stay on sand)
+  for (let i = 0; i < fishes.length; i++) {
+    const a = fishes[i];
+    if (a.species === "crab") continue;
+    for (let j = i + 1; j < fishes.length; j++) {
+      const b = fishes[j];
+      if (b.species === "crab") continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      if (Math.abs(dx) < 11 && Math.abs(dy) < 7) {
+        const push = 0.06 * dt * 0.06;
+        const sy = dy >= 0 ? 1 : -1;
+        const sx = dx >= 0 ? 1 : -1;
+        a.y = Math.max(10, Math.min(SAND_Y - 8, a.y - sy * push));
+        b.y = Math.max(10, Math.min(SAND_Y - 8, b.y + sy * push));
+        a.x = Math.max(10, Math.min(W - 10, a.x - sx * push * 0.6));
+        b.x = Math.max(10, Math.min(W - 10, b.x + sx * push * 0.6));
+      }
+    }
+  }
+
+  // chest + coins
+  if (CHEST.openT > 0) CHEST.openT -= dt;
+  if (CHEST.cooldown > 0) CHEST.cooldown -= dt;
+  for (let i = coins.length - 1; i >= 0; i--) {
+    const c = coins[i];
+    c.y += c.vy * dt * 0.06;
+    c.vy += 0.004 * dt * 0.06;
+    c.life -= dt;
+    if (c.life <= 0 || c.y > SAND_Y - 1) coins.splice(i, 1);
+  }
+  // bubbles
+  if (Math.random() < 0.03 * dt * 0.06) {
+    bubbles.push({ x: rnd(4, W - 4), y: SAND_Y - 2, r: Math.random() < 0.7 ? 1 : 2, ph: rnd(0, 6) });
+  }
+  if (Math.random() < 0.02 * dt * 0.06) {
+    bubbles.push({ x: 93 + rnd(-2, 2), y: SAND_Y - 21, r: 1, ph: rnd(0, 6) });
+  }
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const b = bubbles[i];
+    b.y -= (reduced ? 0.1 : 0.22) * dt * 0.06;
+    b.x += Math.sin(t * 0.01 + b.ph) * 0.05 * dt * 0.06;
+    if (b.y < 2) bubbles.splice(i, 1);
+  }
+  // flakes
+  for (let i = flakes.length - 1; i >= 0; i--) {
+    const fl = flakes[i];
+    fl.life -= dt * 0.06;
+    if (fl.y < SAND_Y - 4) fl.y += fl.vy * dt * 0.06;
+    fl.x += Math.sin(t * 0.008 + fl.y) * 0.02 * dt * 0.06;
+    if (fl.life <= 0) flakes.splice(i, 1);
+  }
+}
+
+// ---------- render ----------
+function render() {
+  drawWater();
+  for (const p of plants) if (!p.front) drawPlant(p);
+  drawServer();
+  drawSand();
+  drawChest();
+  for (const fl of flakes) px(fl.x, fl.y, Math.floor(t * 0.01 + fl.x) % 2 ? "#ffd27a" : "#e8a94e");
+  for (const c of coins) px(c.x, c.y, Math.floor(t * 0.015 + c.x) % 2 ? "#ffd54a" : "#fff6c9");
+  for (const f of fishes) drawFish(f);
+  drawShark();
+  cx.fillStyle = "rgba(190,230,255,0.8)";
+  for (const b of bubbles) {
+    if (b.r === 1) { cx.fillRect(b.x | 0, b.y | 0, 1, 1); }
+    else {
+      cx.fillRect((b.x | 0), (b.y | 0) - 1, 1, 1); cx.fillRect((b.x | 0), (b.y | 0) + 1, 1, 1);
+      cx.fillRect((b.x | 0) - 1, b.y | 0, 1, 1); cx.fillRect((b.x | 0) + 1, b.y | 0, 1, 1);
+    }
+  }
+  for (const p of plants) if (p.front) drawPlant(p);
+}
+
+// ---------- status / loop ----------
+const t0 = Date.now();
+const sUp = document.getElementById("s-uptime"), sFish = document.getElementById("s-fish"),
+      sBub = document.getElementById("s-bub"), sFps = document.getElementById("s-fps");
+let frames = 0, fpsT = 0, lastT = performance.now();
+
+setInterval(() => {
+  const s = Math.floor((Date.now() - t0) / 1000);
+  sUp.textContent = [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, "0")).join(":");
+  sFish.textContent = fishes.length;
+  sBub.textContent = bubbles.length;
+}, 1000);
+
+function loop(now) {
+  const rawDt = Math.min(50, Math.max(0, now - lastT));
+  // global pace: simulation runs at 65% speed for a calmer tank
+  const dt = rawDt * 0.65;
+  lastT = now;
+  frames++; fpsT += rawDt;
+  if (fpsT >= 1000) { sFps.textContent = Math.round(frames * 1000 / fpsT); frames = 0; fpsT = 0; }
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ---------- boot ----------
+fishes.push(makeFish("crab"));   // ferris always ships
+fishes.push(makeFish("jelly"));
+fishes.push(makeFish("puffer"));
+while (nonCrabCount() < MIN_FISH + 1) {
+  let nf; do { nf = makeFish(); } while (nf.species === "crab");
+  fishes.push(nf);
+}
+log("initializing tank driver… ok");
+log("water pump daemon started (pid 42)", "ok");
+log(`${fishes.length} fish processes attached`, "ok");
+requestAnimationFrame(loop);
+
+// ambient log chatter
+setInterval(() => {
+  if (fishes.length === 0) return;
+  const f = fishes[ri(0, fishes.length - 1)];
+  const msgs = [
+    `${f.name}[${f.pid}] emitted bubble`,
+    `${f.name}[${f.pid}] idle · nice 19`,
+    `gc: collected ${ri(2, 40)} plankton objects`,
+    `pump: flow nominal (${rnd(0.8, 1.2).toFixed(2)} L/s)`,
+    `${f.name}[${f.pid}] page fault → resolved (daydream)`,
+    `ferris: borrow checker passed, claw returned`,
+    `moby: layer cached (78.4 MB reclaimed)`,
+    `jellyfin: streaming ambient.currents @ 4k`,
+    `chest: ${CHEST.cooldown > 0 ? "relocking…" : "unlocked — click to loot"}`,
+    `sonar: next shark ETA ${Math.max(1, Math.round(sharkTimer / 60000))}min`,
+  ];
+  log(msgs[ri(0, msgs.length - 1)]);
+}, 7000);
+})();
+</script>
+</body>
+</html>
