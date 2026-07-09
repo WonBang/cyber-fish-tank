@@ -41,6 +41,30 @@
     image-rendering: pixelated;
     cursor: crosshair;
   }
+  .name-tag {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    font: 10px/1.5 "SF Mono", "Menlo", "Consolas", monospace;
+    color: #cfe6ff;
+    background: rgba(5, 10, 20, 0.55);
+    padding: 1px 5px;
+    border-radius: 3px;
+    pointer-events: none;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px #000;
+  }
+  .name-input {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    width: 96px;
+    font: 12px "SF Mono", "Menlo", "Consolas", monospace;
+    background: #0a1424;
+    color: #e8f2fa;
+    border: 1px solid #2a4a78;
+    border-radius: 4px;
+    padding: 3px 6px;
+    outline: none;
+  }
   .scanlines {
     position: absolute; inset: 0; pointer-events: none;
     background: repeating-linear-gradient(
@@ -227,12 +251,15 @@ const SHARK_SPRITE = [
 ];
 const SHARK_PAL = { b: "#5a7186", d: "#3c4f61", f: "#3c4f61" };
 const MANTIS_SPRITE = [
-  "e.e.......",
-  "bbb.......",
-  "bbbbbbb...",
-  "fbbbbbbb..",
-  "ff.bbbb...",
-  "..bb.bb...",
+  "...........e..e.",
+  "...........b..b.",
+  "....bbbbbbbbbb..",
+  "..bbbdbbdbbdbbb.",
+  ".bbbbdbbdbbdbbc.",
+  "dbbbbbbbbbbbbff.",
+  "db...b.b.b..fff.",
+  ".d..........ff..",
+  "............f...",
 ];
 const MANTIS_PAL = { b: "#2fbf68", d: "#1e9e86", f: "#ff5c5c" };
 
@@ -251,7 +278,8 @@ const SPECIES_DEF = [
 ];
 
 // ---------- world state ----------
-const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [];
+const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [], hearts = [];
+const LOVE_AT = 3; // meals before a fish trusts you enough to be named
 let t = 0, spawnedPids = new Set();
 let shark = null, sharkTimer = rnd(45000, 90000);
 let night = false;
@@ -404,6 +432,64 @@ function openChest() {
   log(`loot: ${loot} gold coins (unused variables)`, "ok");
 }
 
+// ---------- naming (affection) ----------
+const wrap = document.querySelector(".tankwrap");
+let nameInput = null;
+function openNameInput(f) {
+  if (nameInput) nameInput.remove();
+  const inp = document.createElement("input");
+  inp.className = "name-input";
+  inp.maxLength = 12;
+  inp.value = f.customName || "";
+  inp.placeholder = "이름 지어주기";
+  const r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+  inp.style.left = (f.x / W * r.width + (r.left - wr.left)) + "px";
+  inp.style.top = (f.y / H * r.height + (r.top - wr.top) - 10) + "px";
+  wrap.appendChild(inp);
+  nameInput = inp;
+  inp.focus();
+  let done = false;
+  const close = (commit) => {
+    if (done) return;
+    done = true;
+    if (commit && inp.value.trim()) {
+      f.customName = inp.value.trim();
+      hearts.push({ x: f.x, y: f.y - 6, life: 1400 });
+    }
+    inp.remove();
+    if (nameInput === inp) nameInput = null;
+  };
+  inp.addEventListener("keydown", (ev) => {
+    ev.stopPropagation();
+    if (ev.key === "Enter") close(true);
+    if (ev.key === "Escape") close(false);
+  });
+  inp.addEventListener("blur", () => close(true));
+}
+
+const nameTags = new Map();
+function updateNameTags() {
+  const r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+  const seen = new Set();
+  for (const f of fishes) {
+    if (!f.customName) continue;
+    seen.add(f);
+    let el = nameTags.get(f);
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "name-tag";
+      wrap.appendChild(el);
+      nameTags.set(f, el);
+    }
+    el.textContent = (f.ate >= 5 ? "👑 " : "") + f.customName;
+    el.style.left = (f.x / W * r.width + (r.left - wr.left)) + "px";
+    el.style.top = (f.y / H * r.height + (r.top - wr.top) - 8) + "px";
+  }
+  for (const [f, el] of nameTags) {
+    if (!seen.has(f)) { el.remove(); nameTags.delete(f); }
+  }
+}
+
 cv.addEventListener("click", (e) => {
   const r = cv.getBoundingClientRect();
   const mx = (e.clientX - r.left) / r.width * W;
@@ -412,6 +498,13 @@ cv.addEventListener("click", (e) => {
     openChest();
     return;
   }
+  // clicking a well-fed fish opens naming instead of feeding
+  let best = null, bd = 8;
+  for (const f of fishes) {
+    const d = Math.hypot(f.x - mx, f.y - my);
+    if (d < bd) { bd = d; best = f; }
+  }
+  if (best && best.ate >= LOVE_AT) { openNameInput(best); return; }
   feed(mx);
 });
 
@@ -580,6 +673,7 @@ function drawSprite(rows, cxr, cyr, dir, pal, opts) {
       else if (ch === "d") col = pal.d;
       else if (ch === "e") col = "#0a0e14";
       else if (ch === "w") col = "#e8f2fa";
+      else if (ch === "c") col = "#46d8ff";
       px(ox + drawC, oy + r, col);
     }
   }
@@ -642,6 +736,7 @@ function drawChest() {
 function eat(f, fl) {
   fl.life = 0;
   f.ate++;
+  if (f.ate >= LOVE_AT) hearts.push({ x: f.x, y: f.y - 5, life: 1100 });
   if (f.ate === 5) log(`${f.name}[${f.pid}] promoted to senior fish 👑`, "ok");
   else log(`${f.name}[${f.pid}] ate flake · exit 0`, "ok");
   f.food = null;
@@ -920,6 +1015,22 @@ function update(dt) {
     }
   }
 
+  // hearts drift up and fade
+  for (let i = hearts.length - 1; i >= 0; i--) {
+    const h = hearts[i];
+    h.y -= 0.1 * dt * 0.06;
+    h.life -= dt;
+    if (h.life <= 0) hearts.splice(i, 1);
+  }
+  // a loved fish occasionally shows affection on its own
+  if (Math.random() < 0.0002 * dt) {
+    const loved = fishes.filter(f => f.ate >= LOVE_AT);
+    if (loved.length) {
+      const f = loved[ri(0, loved.length - 1)];
+      hearts.push({ x: f.x, y: f.y - 5, life: 1100 });
+    }
+  }
+
   // chest + coins
   if (CHEST.openT > 0) CHEST.openT -= dt;
   if (CHEST.cooldown > 0) CHEST.cooldown -= dt;
@@ -961,7 +1072,7 @@ function render() {
   drawSand();
   drawChest();
   if (MANTIS.show > 0) {
-    drawSprite(MANTIS_SPRITE, CHEST.x + 6 + MANTIS.dir * 3, CHEST.y - 4, MANTIS.dir, MANTIS_PAL, {});
+    drawSprite(MANTIS_SPRITE, CHEST.x + 6 + MANTIS.dir * 4, CHEST.y - 5, MANTIS.dir, MANTIS_PAL, {});
   }
   for (const e of eggs) {
     px(e.x, e.y, "#ffe9c9"); px(e.x + 1, e.y, "#ffe9c9");
@@ -971,6 +1082,13 @@ function render() {
   for (const c of coins) px(c.x, c.y, Math.floor(t * 0.003 + c.x) % 2 ? "#ffd54a" : "#fff6c9");
   for (const f of fishes) drawFish(f);
   drawShark();
+  for (const h of hearts) {
+    const c = h.life > 400 ? "#ff6b9d" : "#c23f6e";
+    const hx = Math.round(h.x), hy = Math.round(h.y);
+    px(hx - 1, hy - 1, c); px(hx + 1, hy - 1, c);
+    px(hx - 1, hy, c); px(hx, hy, c); px(hx + 1, hy, c);
+    px(hx, hy + 1, c);
+  }
   cx.fillStyle = "rgba(190,230,255,0.8)";
   for (const b of bubbles) {
     if (b.r === 1) { cx.fillRect(b.x | 0, b.y | 0, 1, 1); }
@@ -992,6 +1110,7 @@ function loop(now) {
   lastT = now;
   update(dt);
   render();
+  updateNameTags();
   requestAnimationFrame(loop);
 }
 
