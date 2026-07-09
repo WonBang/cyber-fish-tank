@@ -290,6 +290,9 @@ const WOUND_SPOTS = [[8,4],[12,5],[16,3],[10,6],[14,4],[18,5],[7,5],[20,4],[11,3
 let breedT = rnd(20000, 40000);
 let driftT = rnd(90000, 180000);
 const CHEST = { x: 146, y: SAND_Y - 9, w: 13, h: 9, openT: 0, cooldown: 0 };
+// bottom-left jail: three stacked treadmill cells; drag a fish in to lock it up
+const JAIL = { x: 2, w: 25, top: SAND_Y - 30, h: 30, right: 27 };
+JAIL.slots = [null, null, null]; // one prisoner per treadmill level
 const MANTIS = { cool: 0, show: 0, dir: 1 };
 const SAND_DWELLERS = ["crab", "starfish"];
 
@@ -329,6 +332,7 @@ function makeFish(forceKey) {
     tx: rnd(20, W - 20),
     burstT: rnd(0, 2000), thrust: 1, scurry: 0,
     aggro: false, aggroT: 0, aggroY: 0,
+    jail: null, dragged: false,
   };
   if (def.key === "crab") { f.y = SAND_Y - 4; f.speed = rnd(0.075, 0.135); }
   if (def.key === "jelly") { f.speed = rnd(0.02, 0.05); }
@@ -394,11 +398,11 @@ function makePlant(type, x, h, front) {
 }
 
 const plants = [
-  ["kelp", 8, 42, false], ["grass", 24, 0, false], ["bush", 38, 0, false],
+  ["kelp", 46, 38, false], ["grass", 64, 0, false], ["bush", 38, 0, false],
   ["coral", 58, 0, false], ["kelp", 71, 30, false], ["fiber", 112, 26, false],
   ["grass", 124, 0, false], ["kelp", 138, 36, false], ["bush", 168, 0, false],
   ["grass", 182, 0, false],
-  ["grass", 14, 0, true], ["fiber", 50, 20, true], ["kelp", 163, 22, true], ["grass", 176, 0, true],
+  ["grass", 104, 0, true], ["fiber", 50, 20, true], ["kelp", 163, 22, true], ["grass", 176, 0, true],
 ].map(([ty, x, h, fr]) => makePlant(ty, x, h, fr));
 
 // ---------- log ----------
@@ -409,7 +413,7 @@ function feed(px) {
   const n = ri(3, 5);
   for (let i = 0; i < n; i++) {
     flakes.push({
-      x: (px ?? rnd(30, W - 30)) + rnd(-8, 8), y: rnd(2, 8),
+      x: Math.max(JAIL.right + 6, (px ?? rnd(30, W - 30)) + rnd(-8, 8)), y: rnd(2, 8),
       vy: rnd(0.38, 0.48), life: 1400,
       claims: 0, maxClaims: ri(1, 2), grounded: false,
     });
@@ -436,7 +440,7 @@ function rallyStrike(mx, my) {
   raid.rallyCd = 4000;
   rings.push({ x: mx, y: my, r: 2, life: 600, col: "#46d8ff" });
   const braves = fishes.filter(f =>
-    !SAND_DWELLERS.includes(f.species) && f.species !== "jelly" && f.knock <= 0);
+    !SAND_DWELLERS.includes(f.species) && f.species !== "jelly" && f.knock <= 0 && !f.jail && !f.dragged);
   for (const f of braves) {
     f.aggro = true;
     f.aggroT = rnd(1400, 2200);
@@ -505,7 +509,7 @@ function raidFail() {
   const b = raid.boss;
   let victim = null, bd = 1e9;
   for (const f of fishes) {
-    if (SAND_DWELLERS.includes(f.species) || f.species === "jelly" || f.inflated) continue;
+    if (SAND_DWELLERS.includes(f.species) || f.species === "jelly" || f.inflated || f.jail || f.dragged) continue;
     const d = Math.hypot(f.x - b.x, f.y - b.y);
     if (d < bd) { bd = d; victim = f; }
   }
@@ -547,7 +551,7 @@ function updateBoss(dt) {
   if (b.bitCd <= 0) {
     const mx = b.x + b.dir * 14;
     for (const f of fishes) {
-      if (SAND_DWELLERS.includes(f.species) || f.knock > 0) continue;
+      if (SAND_DWELLERS.includes(f.species) || f.knock > 0 || f.jail || f.dragged) continue;
       if (Math.abs(f.x - mx) < 9 && Math.abs(f.y - b.y) < 8) {
         f.knock = 2600;
         f.kvx = (f.x >= b.x ? 1 : -1) * rnd(1.6, 2.4);
@@ -594,7 +598,7 @@ function updateBoss(dt) {
   if (b.scd <= 0) {
     const braves = fishes.filter(f =>
       !SAND_DWELLERS.includes(f.species) && f.species !== "jelly" && f.knock <= 0 &&
-      Math.hypot(f.x - b.x, f.y - b.y) < 42);
+      !f.jail && !f.dragged && Math.hypot(f.x - b.x, f.y - b.y) < 42);
     if (braves.length >= 4) {
       for (const f of braves) {
         f.dir = f.x < b.x ? 1 : -1;
@@ -686,7 +690,70 @@ function updateNameTags() {
   }
 }
 
+// ---------- drag & jail ----------
+function toLogical(e) {
+  const r = cv.getBoundingClientRect();
+  return { mx: (e.clientX - r.left) / r.width * W, my: (e.clientY - r.top) / r.height * H };
+}
+
+function imprison(f) {
+  if (f.species === "whale") return false; // doesn't fit through the door
+  const slot = JAIL.slots.findIndex(s => s === null);
+  if (slot === -1) return false; // jail full
+  JAIL.slots[slot] = f;
+  f.jail = { slot, total: 0, sentence: 0 };
+  f.jail.total = f.jail.sentence = rnd(9000, 13000);
+  f.knock = 0;
+  dropFood(f);
+  return true;
+}
+
+let dragFish = null, dragMoved = 0, suppressClick = false;
+cv.addEventListener("mousedown", (e) => {
+  const { mx, my } = toLogical(e);
+  let best = null, bd = 8;
+  for (const f of fishes) {
+    if (f.jail) continue;
+    const d = Math.hypot(f.x - mx, f.y - my);
+    if (d < bd) { bd = d; best = f; }
+  }
+  if (best) {
+    dragFish = best;
+    best.dragged = true;
+    best.knock = 0;
+    dragMoved = 0;
+    dropFood(best);
+  }
+});
+cv.addEventListener("mousemove", (e) => {
+  if (!dragFish) return;
+  const { mx, my } = toLogical(e);
+  dragMoved += Math.abs(mx - dragFish.x) + Math.abs(my - dragFish.y);
+  dragFish.x = Math.max(4, Math.min(W - 4, mx));
+  dragFish.y = Math.max(6, Math.min(SAND_Y - 3, my));
+});
+function endDrag(e) {
+  if (!dragFish) return;
+  const f = dragFish;
+  dragFish = null;
+  f.dragged = false;
+  if (dragMoved > 5) suppressClick = true;
+  const inJail = f.x < JAIL.right + 3 && f.y > JAIL.top - 4;
+  if (inJail && imprison(f)) {
+    for (let k = 0; k < 4; k++) bubbles.push({ x: f.x, y: f.y, r: 1, ph: rnd(0, 6) });
+    return;
+  }
+  // released (or jail full/whale): little splash, swims off
+  f.knock = 500;
+  f.kvx = rnd(-0.6, 0.6) + (inJail ? 1.2 : 0); // bounced off a full jail
+  f.kvy = rnd(-0.4, 0.2);
+  for (let k = 0; k < 3; k++) bubbles.push({ x: f.x, y: f.y, r: 1, ph: rnd(0, 6) });
+}
+cv.addEventListener("mouseup", endDrag);
+cv.addEventListener("mouseleave", endDrag);
+
 cv.addEventListener("click", (e) => {
+  if (suppressClick) { suppressClick = false; return; }
   const r = cv.getBoundingClientRect();
   const mx = (e.clientX - r.left) / r.width * W;
   const my = (e.clientY - r.top) / r.height * H;
@@ -957,6 +1024,46 @@ function drawRaid() {
   }
 }
 
+function drawJailBack() {
+  // cell interior shading
+  cx.fillStyle = "rgba(8, 13, 24, 0.5)";
+  cx.fillRect(JAIL.x, JAIL.top, JAIL.w, JAIL.h);
+  for (let s = 0; s < 3; s++) {
+    const fy = SAND_Y - 1 - s * 10; // this level's floor
+    if (s > 0) { cx.fillStyle = "#2a3547"; cx.fillRect(JAIL.x + 1, fy + 1, JAIL.w - 2, 1); }
+    // treadmill: rollers, animated belt, console post with a running light
+    const bx = 6, bw = 14;
+    const shift = Math.floor(t * 0.02) % 4;
+    for (let i = 0; i < bw; i++) {
+      cx.fillStyle = ((i + 4 - shift) % 4 < 2) ? "#4a5668" : "#2f3b4e";
+      cx.fillRect(bx + i, fy - 1, 1, 1);
+    }
+    cx.fillStyle = "#141b29"; cx.fillRect(bx, fy, bw, 1);
+    px(bx - 1, fy - 1, "#5a6a82"); px(bx + bw, fy - 1, "#5a6a82");
+    cx.fillStyle = "#3a4556"; cx.fillRect(bx + bw + 2, fy - 5, 1, 5);
+    px(bx + bw + 2, fy - 6, Math.floor(t * 0.01 + s) % 2 ? "#3dff8b" : "#14532d");
+    // sentence progress above an occupied treadmill
+    const pf = JAIL.slots[s];
+    if (pf && pf.jail) {
+      const frac = Math.max(0, Math.min(1, 1 - pf.jail.sentence / pf.jail.total));
+      cx.fillStyle = "#1c2433"; cx.fillRect(bx + 2, fy - 9, 10, 1);
+      cx.fillStyle = "#3dff8b"; cx.fillRect(bx + 2, fy - 9, Math.round(10 * frac), 1);
+    }
+  }
+}
+
+function drawJailFront() {
+  // roof and right-side frame
+  cx.fillStyle = "#3a4556";
+  cx.fillRect(JAIL.x, JAIL.top - 1, JAIL.w + 1, 1);
+  cx.fillRect(JAIL.right, JAIL.top - 1, 1, JAIL.h + 1);
+  // vertical bars over the cell
+  cx.fillStyle = "#46536a";
+  for (let bx = JAIL.x + 2; bx < JAIL.right; bx += 4) {
+    cx.fillRect(bx, JAIL.top, 1, JAIL.h);
+  }
+}
+
 function drawChest() {
   const X = CHEST.x, Y = CHEST.y, open = CHEST.openT > 0;
   // base
@@ -1040,7 +1147,7 @@ function update(dt) {
       const mx = shark.x + shark.dir * 9;
       for (let i = 0; i < fishes.length; i++) {
         const f = fishes[i];
-        if (SAND_DWELLERS.includes(f.species) || f.species === "jelly") continue;
+        if (SAND_DWELLERS.includes(f.species) || f.species === "jelly" || f.jail || f.dragged) continue;
         if (f.inflated) continue; // spikes: inflated puffer is inedible
         if (Math.abs(f.x - mx) < 7 && Math.abs(f.y - shark.y) < 5) {
           dropFood(f);
@@ -1072,7 +1179,7 @@ function update(dt) {
   if (MANTIS.show > 0) MANTIS.show -= dt;
   if (MANTIS.cool <= 0 && (!raid || raid.phase === "warn")) {
     for (const f of fishes) {
-      if (SAND_DWELLERS.includes(f.species) || f.knock > 0) continue;
+      if (SAND_DWELLERS.includes(f.species) || f.knock > 0 || f.jail || f.dragged) continue;
       if (Math.abs(f.x - (CHEST.x + 6)) < 13 && f.y > CHEST.y - 15) {
         MANTIS.dir = f.x >= CHEST.x + 6 ? 1 : -1;
         MANTIS.cool = 5000;
@@ -1104,6 +1211,7 @@ function update(dt) {
           const a = fishes[i], b = fishes[j];
           if (a.species !== b.species) continue;
           if (SAND_DWELLERS.includes(a.species) || a.species === "jelly") continue;
+          if (a.jail || b.jail || a.dragged || b.dragged) continue;
           if (Math.hypot(a.x - b.x, a.y - b.y) < 24) {
             const n = ri(1, 2);
             for (let k = 0; k < n; k++) {
@@ -1148,6 +1256,26 @@ function update(dt) {
   // fish
   for (const f of fishes) {
     f.retarget -= dt;
+
+    // doing time: swim the treadmill until the sentence is served
+    if (f.jail) {
+      f.jail.sentence -= dt;
+      const floorY = SAND_Y - 1 - f.jail.slot * 10;
+      f.dir = 1;
+      f.x = 13 + Math.sin(t * 0.02 + f.phase) * 0.6;
+      f.y = floorY - 4 + Math.sin(t * 0.018 + f.phase) * 0.5;
+      f.vx = 0;
+      if (Math.random() < 0.0012 * dt) bubbles.push({ x: f.x + 4, y: f.y - 3, r: 1, ph: rnd(0, 6) }); // effort bubbles
+      if (f.jail.sentence <= 0) {
+        JAIL.slots[f.jail.slot] = null;
+        f.jail = null;
+        f.knock = 700; f.kvx = 1.6; f.kvy = -0.5; // bursts out through the door
+        hearts.push({ x: JAIL.right + 4, y: floorY - 8, life: 1000 });
+        for (let k = 0; k < 5; k++) bubbles.push({ x: JAIL.right + 2, y: floorY - 4, r: 1, ph: rnd(0, 6) });
+      }
+      continue;
+    }
+    if (f.dragged) continue;
 
     // mantis-punched: ragdoll bouncing off the glass until it recovers
     if (f.knock > 0) {
@@ -1312,13 +1440,23 @@ function update(dt) {
     f.y = Math.max(10, Math.min(SAND_Y - 8, f.y));
   }
 
+  // free fish keep clear of the jail block
+  for (const f of fishes) {
+    if (f.jail || f.dragged) continue;
+    if (f.y > JAIL.top - 6 && f.x < JAIL.right + 5) {
+      f.x = JAIL.right + 5;
+      if (f.knock > 0) f.kvx = Math.abs(f.kvx);
+      else f.dir = 1;
+    }
+  }
+
   // separation: overlapping swimmers gently push apart (crabs stay on sand)
   for (let i = 0; i < fishes.length; i++) {
     const a = fishes[i];
-    if (SAND_DWELLERS.includes(a.species) || a.knock > 0) continue;
+    if (SAND_DWELLERS.includes(a.species) || a.knock > 0 || a.jail || a.dragged) continue;
     for (let j = i + 1; j < fishes.length; j++) {
       const b = fishes[j];
-      if (SAND_DWELLERS.includes(b.species) || b.knock > 0) continue;
+      if (SAND_DWELLERS.includes(b.species) || b.knock > 0 || b.jail || b.dragged) continue;
       const dx = b.x - a.x, dy = b.y - a.y;
       if (Math.abs(dx) < 11 && Math.abs(dy) < 7) {
         const push = 0.06 * dt * 0.06;
@@ -1400,6 +1538,7 @@ function render() {
   for (const p of plants) if (!p.front) drawPlant(p);
   drawRocks();
   drawSand();
+  drawJailBack();
   drawChest();
   if (MANTIS.show > 0) {
     drawSprite(MANTIS_SPRITE, CHEST.x + 6 + MANTIS.dir * 4, CHEST.y - 5, MANTIS.dir, MANTIS_PAL, {});
@@ -1428,6 +1567,7 @@ function render() {
     }
   }
   for (const p of plants) if (p.front) drawPlant(p);
+  drawJailFront();
   // raid gloom settles over the whole tank, boss stays vivid on top
   if (raidDark > 0.01) {
     cx.fillStyle = `rgba(3, 9, 20, ${(raidDark * 0.42).toFixed(3)})`;
