@@ -411,9 +411,13 @@ function log() {}
 // ---------- actions ----------
 function feed(px) {
   const n = ri(3, 5);
+  const inJail = px !== undefined && px < JAIL.right + 3;
   for (let i = 0; i < n; i++) {
+    const fx = inJail
+      ? Math.max(JAIL.x + 3, Math.min(JAIL.right - 3, px + rnd(-4, 4))) // meal drop for the inmates
+      : Math.max(JAIL.right + 6, (px ?? rnd(30, W - 30)) + rnd(-8, 8));
     flakes.push({
-      x: Math.max(JAIL.right + 6, (px ?? rnd(30, W - 30)) + rnd(-8, 8)), y: rnd(2, 8),
+      x: fx, y: rnd(2, 8),
       vy: rnd(0.38, 0.48), life: 1400,
       claims: 0, maxClaims: ri(1, 2), grounded: false,
     });
@@ -1266,6 +1270,11 @@ function update(dt) {
       f.y = floorY - 4 + Math.sin(t * 0.018 + f.phase) * 0.5;
       f.vx = 0;
       if (Math.random() < 0.0012 * dt) bubbles.push({ x: f.x + 4, y: f.y - 3, r: 1, ph: rnd(0, 6) }); // effort bubbles
+      // catches meals dropped into the cell as they fall past
+      for (const fl of flakes) {
+        if (fl.life <= 0) continue;
+        if (Math.abs(fl.x - f.x) < 6 && Math.abs(fl.y - f.y) < 6) { eat(f, fl); break; }
+      }
       if (f.jail.sentence <= 0) {
         JAIL.slots[f.jail.slot] = null;
         f.jail = null;
