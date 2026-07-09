@@ -44,14 +44,13 @@
   .name-tag {
     position: absolute;
     transform: translate(-50%, -100%);
-    font: 10px/1.5 "SF Mono", "Menlo", "Consolas", monospace;
-    color: #cfe6ff;
-    background: rgba(5, 10, 20, 0.55);
-    padding: 1px 5px;
-    border-radius: 3px;
+    font: 9px/1.4 "SF Mono", "Menlo", "Consolas", monospace;
+    letter-spacing: 0.06em;
+    color: rgba(190, 220, 250, 0.62);
     pointer-events: none;
     white-space: nowrap;
-    text-shadow: 0 1px 2px #000;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    transition: opacity 0.4s ease;
   }
   .name-input {
     position: absolute;
@@ -474,19 +473,26 @@ function updateNameTags() {
   for (const f of fishes) {
     if (!f.customName) continue;
     seen.add(f);
-    let el = nameTags.get(f);
-    if (!el) {
-      el = document.createElement("div");
+    let tag = nameTags.get(f);
+    if (!tag) {
+      const el = document.createElement("div");
       el.className = "name-tag";
       wrap.appendChild(el);
-      nameTags.set(f, el);
+      tag = { el, x: f.x, y: f.y };
+      nameTags.set(f, tag);
     }
-    el.textContent = (f.ate >= 5 ? "👑 " : "") + f.customName;
-    el.style.left = (f.x / W * r.width + (r.left - wr.left)) + "px";
-    el.style.top = (f.y / H * r.height + (r.top - wr.top) - 8) + "px";
+    // drift lazily after the fish, like text floating in water
+    tag.x += (f.x - tag.x) * 0.06;
+    tag.y += (f.y - tag.y) * 0.06;
+    // fade while darting, reappear when gliding
+    const moving = Math.abs(f.vx) + (f.knock > 0 ? 2 : 0);
+    tag.el.style.opacity = moving > 0.45 ? "0" : "1";
+    tag.el.textContent = f.customName;
+    tag.el.style.left = (tag.x / W * r.width + (r.left - wr.left)) + "px";
+    tag.el.style.top = (tag.y / H * r.height + (r.top - wr.top) - 8) + "px";
   }
-  for (const [f, el] of nameTags) {
-    if (!seen.has(f)) { el.remove(); nameTags.delete(f); }
+  for (const [f, tag] of nameTags) {
+    if (!seen.has(f)) { tag.el.remove(); nameTags.delete(f); }
   }
 }
 
