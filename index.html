@@ -285,8 +285,8 @@ let shark = null, sharkTimer = rnd(45000, 90000);
 let night = false;
 // shark raid boss event
 let raid = null, raidTimer = rnd(60000, 120000), raidDark = 0;
-const RAID_WARN_MS = 13000, BOSS_HP = 12;
-const WOUND_SPOTS = [[8,4],[12,5],[16,3],[10,6],[14,4],[18,5],[7,5],[20,4],[11,3],[15,6],[9,4],[17,4]];
+const RAID_WARN_MS = 13000, BOSS_HP = 15;
+const WOUND_SPOTS = [[8,4],[12,5],[16,3],[10,6],[14,4],[18,5],[7,5],[20,4],[11,3],[15,6],[9,4],[17,4],[13,3],[19,5],[6,4]];
 let breedT = rnd(20000, 40000);
 let driftT = rnd(90000, 180000);
 const CHEST = { x: 146, y: SAND_Y - 9, w: 13, h: 9, openT: 0, cooldown: 0 };
@@ -328,6 +328,7 @@ function makeFish(forceKey) {
     knock: 0, kvx: 0, kvy: 0,
     tx: rnd(20, W - 20),
     burstT: rnd(0, 2000), thrust: 1, scurry: 0,
+    aggro: false, aggroT: 0, aggroY: 0,
   };
   if (def.key === "crab") { f.y = SAND_Y - 4; f.speed = rnd(0.075, 0.135); }
   if (def.key === "jelly") { f.speed = rnd(0.02, 0.05); }
@@ -1183,9 +1184,28 @@ function update(dt) {
       if (f.inflated && !wasInflated) log(`${f.name}[${f.pid}] inflated — stack overflow`, "warn");
     }
 
-    // flee threat (shark, or raid boss at a tighter radius so brave fish can ram)
-    // inflated puffers hold their ground — they ARE the defense
-    if (threat && Math.abs(threat.x - f.x) < fleeR && !f.inflated) {
+    // raid combat: the whole school mobs the boss in hit-and-run waves
+    if (raid && raid.phase === "fight" && !f.inflated) {
+      const b = raid.boss;
+      f.aggroT -= dt;
+      if (f.aggroT <= 0) {
+        f.aggroT = rnd(1000, 2400);
+        f.aggro = Math.random() < 0.7; // most of the tank fights, a few catch their breath
+        f.aggroY = rnd(-9, 9);
+      }
+      dropFood(f);
+      if (f.aggro) {
+        // dart at the boss flank
+        f.dir = f.x < b.x ? 1 : -1;
+        f.targetY = b.y + f.aggroY;
+      } else {
+        // peel off before circling back
+        f.dir = f.x < b.x ? -1 : 1;
+        f.targetY = f.y < 50 ? 18 : SAND_Y - 16;
+      }
+    }
+    // flee threat (regular shark passes)
+    else if (threat && Math.abs(threat.x - f.x) < fleeR && !f.inflated) {
       f.dir = f.x < threat.x ? -1 : 1;
       f.targetY = f.y < threat.y ? 16 : SAND_Y - 14;
       dropFood(f);
@@ -1219,8 +1239,10 @@ function update(dt) {
     }
 
     let sp = f.food ? f.speed * 1.9 : f.speed;
-    const excited = f.food || (threat && Math.abs(threat.x - f.x) < fleeR);
+    const inCombat = raid && raid.phase === "fight";
+    const excited = f.food || inCombat || (threat && Math.abs(threat.x - f.x) < fleeR);
     if (threat && Math.abs(threat.x - f.x) < fleeR) sp = f.speed * 2.6;
+    if (inCombat && f.aggro) sp = f.speed * 2.2;
     if (f.inflated) sp = f.speed * 0.3;
     sp *= nightMul;
     // burst-and-glide: tail-beat kicks accelerate the fish, then it coasts
