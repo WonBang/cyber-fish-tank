@@ -3,71 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="관상용 사이버 어항 — 터미널 속에서 헤엄치는 개발자 프로세스 물고기들">
-<title>cyber-fish-tank — 관상용 사이버 어항</title>
+<meta name="description" content="관상용 사이버 어항 — 픽셀 아트 물고기들이 헤엄치는 작은 수족관">
+<title>관상용 사이버 어항</title>
 <style>
-  :root {
-    --bg: #05070d;
-    --panel: #0a0f1a;
-    --chrome: #0e1524;
-    --border: #1b2a45;
-    --ink: #b8cbe4;
-    --dim: #5b7091;
-    --green: #3dff8b;
-    --cyan: #46d8ff;
-    --amber: #ffb454;
-    --pink: #ff6b9d;
-    --mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
-  }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0;
-    background: var(--bg);
+    background: #05070d;
     background-image: radial-gradient(ellipse 90% 60% at 50% -10%, #0a1626 0%, transparent 60%);
-    color: var(--ink);
-    font-family: var(--mono);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px 16px;
   }
-  .rig { width: 100%; max-width: 780px; }
-
-  .term {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
+  .frame {
+    width: 100%;
+    max-width: 920px;
+    padding: 10px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #16203a, #0a0f1a);
+    border: 1px solid #1b2a45;
     box-shadow:
       0 0 0 1px #000,
-      0 0 42px rgba(70, 216, 255, 0.10),
-      0 24px 60px rgba(0, 0, 0, 0.6);
+      0 0 60px rgba(70, 216, 255, 0.12),
+      0 30px 80px rgba(0, 0, 0, 0.65);
   }
-  .titlebar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    background: var(--chrome);
-    border-bottom: 1px solid var(--border);
-  }
-  .dots { display: flex; gap: 6px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: #26334e; }
-  .dot.r { background: #ff5f57; } .dot.y { background: #febc2e; } .dot.g { background: #28c840; }
-  .title {
-    flex: 1;
-    text-align: center;
-    font-size: 11px;
-    color: var(--dim);
-    letter-spacing: 0.04em;
-    white-space: nowrap;
+  .tankwrap {
+    position: relative;
+    border-radius: 10px;
     overflow: hidden;
-    text-overflow: ellipsis;
+    background: #04101e;
   }
-  .ver { font-size: 10px; color: #33507a; letter-spacing: 0.1em; }
-
-  .tankwrap { position: relative; background: #04101e; }
   canvas {
     display: block;
     width: 100%;
@@ -85,112 +52,16 @@
     position: absolute; inset: 0; pointer-events: none;
     background: radial-gradient(ellipse 120% 100% at 50% 45%, transparent 55%, rgba(2,6,12,0.55) 100%);
   }
-
-  .console {
-    border-top: 1px solid var(--border);
-    padding: 12px 14px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .cmdrow { display: flex; flex-wrap: wrap; gap: 8px; }
-  button {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--green);
-    background: #0c1626;
-    border: 1px solid #1d3050;
-    border-radius: 4px;
-    padding: 6px 12px;
-    cursor: pointer;
-    letter-spacing: 0.02em;
-  }
-  button:hover { background: #12203a; border-color: #2a4a78; }
-  button:active { transform: translateY(1px); }
-  button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
-  button.danger { color: var(--pink); }
-  button .p { color: var(--dim); }
-
-  .statusbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-    font-size: 11px;
-    color: var(--dim);
-    padding: 8px 10px;
-    background: #081120;
-    border: 1px solid #14233d;
-    border-radius: 4px;
-    font-variant-numeric: tabular-nums;
-  }
-  .statusbar b { color: var(--ink); font-weight: 500; }
-  .live { color: var(--green); }
-  .live::before { content: "●"; margin-right: 6px; animation: blink 2.4s steps(1) infinite; }
-  @keyframes blink { 0%, 70% { opacity: 1; } 71%, 100% { opacity: 0.25; } }
-  #hoverinfo { color: var(--cyan); min-height: 14px; }
-
-  .log {
-    font-size: 11px;
-    line-height: 1.7;
-    color: #46608a;
-    height: 96px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-  }
-  .log .t { color: #2e4468; margin-right: 8px; }
-  .log .ok { color: var(--green); }
-  .log .warn { color: var(--amber); }
-  .log .err { color: var(--pink); }
-
-  .foot {
-    margin-top: 12px;
-    text-align: center;
-    font-size: 10px;
-    color: #2c4066;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .live::before { animation: none; }
-  }
 </style>
 </head>
 <body>
 
-<div class="rig">
-  <div class="term">
-    <div class="titlebar">
-      <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
-      <div class="title">wonjun@tank: ~/cyber-fish-tank — 관상용 사이버 어항</div>
-      <div class="ver">v1.3.0</div>
-    </div>
-    <div class="tankwrap">
-      <canvas id="tank" width="192" height="120" aria-label="픽셀 아트 사이버 어항. 물고기들이 헤엄치는 애니메이션."></canvas>
-      <div class="scanlines"></div>
-      <div class="vignette"></div>
-    </div>
-    <div class="console">
-      <div class="cmdrow">
-        <button id="btn-feed"><span class="p">$</span> ./feed.sh</button>
-        <button id="btn-spawn"><span class="p">$</span> ./spawn.sh --random</button>
-        <button id="btn-kill" class="danger"><span class="p">$</span> kill -9 $RANDOM</button>
-        <button id="btn-shark" class="danger"><span class="p">$</span> sudo ./shark</button>
-        <button id="btn-night"><span class="p">$</span> ./night.sh</button>
-      </div>
-      <div class="statusbar">
-        <span class="live">RUNNING</span>
-        <span>uptime <b id="s-uptime">00:00:00</b></span>
-        <span>fish <b id="s-fish">0</b></span>
-        <span>bubbles <b id="s-bub">0</b></span>
-        <span><b id="s-fps">60</b> fps</span>
-        <span id="hoverinfo"></span>
-      </div>
-      <div class="log" id="log" aria-live="polite"></div>
-    </div>
+<div class="frame">
+  <div class="tankwrap">
+    <canvas id="tank" width="192" height="120" aria-label="픽셀 아트 사이버 어항. 물고기들이 헤엄치는 애니메이션. 클릭하면 먹이를 줄 수 있습니다."></canvas>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
   </div>
-  <div class="foot">click water to feed · click chest to loot · feed 5 flakes = 👑 promotion · no fish were harmed in this process table</div>
 </div>
 
 <script>
@@ -456,17 +327,7 @@ const plants = [
 ].map(([ty, x, h, fr]) => makePlant(ty, x, h, fr));
 
 // ---------- log ----------
-const logEl = document.getElementById("log");
-const logs = [];
-function clock() {
-  const s = Math.floor((Date.now() - t0) / 1000);
-  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
-}
-function log(msg, cls) {
-  logs.push(`<div><span class="t">[${clock()}]</span><span class="${cls || ""}">${msg}</span></div>`);
-  while (logs.length > 6) logs.shift();
-  logEl.innerHTML = logs.join("");
-}
+function log() {}
 
 // ---------- actions ----------
 function feed(px) {
@@ -476,43 +337,20 @@ function feed(px) {
   }
   log(`feed.sh: ${n} flakes dropped`, "ok");
 }
-function spawn() {
-  if (fishes.length >= 14) { log("spawn.sh: E_TANK_FULL (max 14)", "warn"); return; }
-  const f = makeFish();
-  fishes.push(f);
-  if (f.species === "golden") log(`✨ RARE DROP: ${f.name} (pid ${f.pid}) — root privileges granted`, "warn");
-  else log(`spawned ${f.name} (pid ${f.pid}) [${f.species}]`, "ok");
-}
 function nonCrabCount() { return fishes.filter(f => f.species !== "crab").length; }
 
-function kill9() {
-  if (fishes.length <= 1) { log("kill: refusing — last fish is init (pid 1)", "warn"); return; }
-  const i = ri(0, fishes.length - 1);
-  const f = fishes.splice(i, 1)[0];
-  for (let k = 0; k < 8; k++) bubbles.push({ x: f.x + rnd(-3, 3), y: f.y + rnd(-2, 2), r: Math.random() < 0.5 ? 1 : 2, ph: rnd(0, 6) });
-  log(`[SIGKILL] pid ${f.pid} (${f.name}) terminated`, "err");
-  // population floor: supervisor auto-respawns below MIN_FISH
-  if (nonCrabCount() < MIN_FISH) {
-    setTimeout(() => {
-      if (nonCrabCount() >= MIN_FISH) return;
-      let nf; do { nf = makeFish(); } while (nf.species === "crab");
-      fishes.push(nf);
-      log(`systemd: fish.service auto-restarted → ${nf.name} (pid ${nf.pid})`, "warn");
-    }, 3000);
-  }
-}
 function summonShark() {
   if (shark) { log("shark: already in tank (EBUSY)", "warn"); return; }
   const dir = Math.random() < 0.5 ? 1 : -1;
   shark = { x: dir === 1 ? -30 : W + 30, y: rnd(30, 70), dir };
   log("[WARN] unauthorized sudo shark detected — all fish scattering", "warn");
 }
-function toggleNight() {
-  night = !night;
-  document.querySelector("#btn-night").innerHTML =
-    night ? '<span class="p">$</span> ./day.sh' : '<span class="p">$</span> ./night.sh';
-  log(night ? "cron: night mode enabled — fish entering sleep(8h)" : "cron: sunrise — SIGCONT sent to all fish", "ok");
+function applyNightByClock() {
+  const h = new Date().getHours();
+  night = h >= 19 || h < 7;
 }
+applyNightByClock();
+setInterval(applyNightByClock, 60000);
 function openChest() {
   if (CHEST.cooldown > 0) { log("chest: locked (retry after cooldown)", "warn"); return; }
   CHEST.openT = 3000;
@@ -524,11 +362,6 @@ function openChest() {
   for (let i = 0; i < 5; i++) bubbles.push({ x: CHEST.x + 6 + rnd(-4, 4), y: CHEST.y, r: 1, ph: rnd(0, 6) });
   log(`loot: ${loot} gold coins (unused variables)`, "ok");
 }
-document.getElementById("btn-feed").addEventListener("click", () => feed());
-document.getElementById("btn-spawn").addEventListener("click", spawn);
-document.getElementById("btn-kill").addEventListener("click", kill9);
-document.getElementById("btn-shark").addEventListener("click", summonShark);
-document.getElementById("btn-night").addEventListener("click", toggleNight);
 
 cv.addEventListener("click", (e) => {
   const r = cv.getBoundingClientRect();
@@ -541,22 +374,6 @@ cv.addEventListener("click", (e) => {
   feed(mx);
 });
 
-// hover: nearest fish info
-const hoverEl = document.getElementById("hoverinfo");
-cv.addEventListener("mousemove", (e) => {
-  const r = cv.getBoundingClientRect();
-  const mx = (e.clientX - r.left) / r.width * W;
-  const my = (e.clientY - r.top) / r.height * H;
-  let best = null, bd = 12;
-  for (const f of fishes) {
-    const d = Math.hypot(f.x - mx, f.y - my);
-    if (d < bd) { bd = d; best = f; }
-  }
-  hoverEl.textContent = best
-    ? `▸ ${best.name} · pid ${best.pid} · ${best.species} · cpu ${(best.speed * 3).toFixed(1)}% · ate ${best.ate}${best.ate >= 5 ? " 👑" : ""}`
-    : "";
-});
-cv.addEventListener("mouseleave", () => { hoverEl.textContent = ""; });
 
 // ---------- drawing ----------
 function px(x, y, c) { cx.fillStyle = c; cx.fillRect(x | 0, y | 0, 1, 1); }
@@ -693,21 +510,18 @@ function drawFiber(p) {
 const PLANT_DRAW = { kelp: drawKelp, grass: drawGrass, bush: drawBush, coral: drawCoral, fiber: drawFiber };
 function drawPlant(p) { PLANT_DRAW[p.type](p); }
 
-function drawServer() {
-  // sunken server rack, 14w x 20h at x=86
-  const X = 86, Y = SAND_Y - 20;
-  cx.fillStyle = "#1c2433"; cx.fillRect(X, Y, 14, 20);
-  cx.fillStyle = "#2a3547"; cx.fillRect(X, Y, 14, 1); cx.fillRect(X, Y, 1, 20);
-  cx.fillStyle = "#121826"; cx.fillRect(X + 13, Y, 1, 20); cx.fillRect(X, Y + 19, 14, 1);
-  for (let u = 0; u < 4; u++) {
-    const uy = Y + 2 + u * 5;
-    cx.fillStyle = "#0d1320"; cx.fillRect(X + 2, uy, 10, 3);
-    const on = Math.floor(t * 0.02 + u * 1.7) % 3 !== 0;
-    px(X + 3, uy + 1, on ? "#3dff8b" : "#14532d");
-    px(X + 5, uy + 1, Math.floor(t * 0.013 + u) % 2 ? "#46d8ff" : "#123a4d");
-    cx.fillStyle = "#2a3547"; cx.fillRect(X + 7, uy + 1, 4, 1);
+function drawRocks() {
+  const mounds = [[90, 7, "#3a4556"], [98, 5, "#2b3444"], [83, 4, "#46536a"]];
+  for (const [mx, r, col] of mounds) {
+    for (let hgt = 0; hgt <= r; hgt++) {
+      const hw = Math.round(Math.sqrt(r * r - hgt * hgt) * 0.95);
+      cx.fillStyle = col;
+      cx.fillRect(mx - hw, SAND_Y - 1 - hgt, hw * 2 + 1, 1);
+    }
   }
-  // vent bubbles occasionally handled in update()
+  // moss
+  px(87, SAND_Y - 8, "#2fbf68"); px(90, SAND_Y - 9, "#17d96b"); px(93, SAND_Y - 8, "#22b35c");
+  px(97, SAND_Y - 6, "#2fbf68"); px(100, SAND_Y - 5, "#22b35c"); px(82, SAND_Y - 5, "#17d96b");
 }
 
 function drawSprite(rows, cxr, cyr, dir, pal, opts) {
@@ -922,7 +736,7 @@ function update(dt) {
     bubbles.push({ x: rnd(4, W - 4), y: SAND_Y - 2, r: Math.random() < 0.7 ? 1 : 2, ph: rnd(0, 6) });
   }
   if (Math.random() < 0.02 * dt * 0.06) {
-    bubbles.push({ x: 93 + rnd(-2, 2), y: SAND_Y - 21, r: 1, ph: rnd(0, 6) });
+    bubbles.push({ x: 93 + rnd(-2, 2), y: SAND_Y - 9, r: 1, ph: rnd(0, 6) });
   }
   for (let i = bubbles.length - 1; i >= 0; i--) {
     const b = bubbles[i];
@@ -944,7 +758,7 @@ function update(dt) {
 function render() {
   drawWater();
   for (const p of plants) if (!p.front) drawPlant(p);
-  drawServer();
+  drawRocks();
   drawSand();
   drawChest();
   for (const fl of flakes) px(fl.x, fl.y, Math.floor(t * 0.01 + fl.x) % 2 ? "#ffd27a" : "#e8a94e");
@@ -962,26 +776,14 @@ function render() {
   for (const p of plants) if (p.front) drawPlant(p);
 }
 
-// ---------- status / loop ----------
-const t0 = Date.now();
-const sUp = document.getElementById("s-uptime"), sFish = document.getElementById("s-fish"),
-      sBub = document.getElementById("s-bub"), sFps = document.getElementById("s-fps");
-let frames = 0, fpsT = 0, lastT = performance.now();
-
-setInterval(() => {
-  const s = Math.floor((Date.now() - t0) / 1000);
-  sUp.textContent = [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, "0")).join(":");
-  sFish.textContent = fishes.length;
-  sBub.textContent = bubbles.length;
-}, 1000);
+// ---------- loop ----------
+let lastT = performance.now();
 
 function loop(now) {
   const rawDt = Math.min(50, Math.max(0, now - lastT));
   // global pace: simulation runs at 65% speed for a calmer tank
   const dt = rawDt * 0.65;
   lastT = now;
-  frames++; fpsT += rawDt;
-  if (fpsT >= 1000) { sFps.textContent = Math.round(frames * 1000 / fpsT); frames = 0; fpsT = 0; }
   update(dt);
   render();
   requestAnimationFrame(loop);
@@ -1000,24 +802,6 @@ log("water pump daemon started (pid 42)", "ok");
 log(`${fishes.length} fish processes attached`, "ok");
 requestAnimationFrame(loop);
 
-// ambient log chatter
-setInterval(() => {
-  if (fishes.length === 0) return;
-  const f = fishes[ri(0, fishes.length - 1)];
-  const msgs = [
-    `${f.name}[${f.pid}] emitted bubble`,
-    `${f.name}[${f.pid}] idle · nice 19`,
-    `gc: collected ${ri(2, 40)} plankton objects`,
-    `pump: flow nominal (${rnd(0.8, 1.2).toFixed(2)} L/s)`,
-    `${f.name}[${f.pid}] page fault → resolved (daydream)`,
-    `ferris: borrow checker passed, claw returned`,
-    `moby: layer cached (78.4 MB reclaimed)`,
-    `jellyfin: streaming ambient.currents @ 4k`,
-    `chest: ${CHEST.cooldown > 0 ? "relocking…" : "unlocked — click to loot"}`,
-    `sonar: next shark ETA ${Math.max(1, Math.round(sharkTimer / 60000))}min`,
-  ];
-  log(msgs[ri(0, msgs.length - 1)]);
-}, 7000);
 })();
 </script>
 </body>
