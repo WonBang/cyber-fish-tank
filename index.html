@@ -374,7 +374,7 @@ function log() {}
 function feed(px) {
   const n = ri(3, 5);
   for (let i = 0; i < n; i++) {
-    flakes.push({ x: (px ?? rnd(30, W - 30)) + rnd(-8, 8), y: rnd(2, 8), vy: rnd(0.08, 0.16), life: 1400 });
+    flakes.push({ x: (px ?? rnd(30, W - 30)) + rnd(-8, 8), y: rnd(2, 8), vy: rnd(0.3, 0.5), life: 1400 });
   }
   log(`feed.sh: ${n} flakes dropped`, "ok");
 }
@@ -699,9 +699,9 @@ function update(dt) {
         MANTIS.cool = 5000;
         MANTIS.show = 1000;
         CHEST.openT = Math.max(CHEST.openT, 1000);
-        const power = rnd(1.3, 1.9);
+        const power = rnd(2.8, 3.8);
         const ang = rnd(-2.2, -0.9); // launch upward-ish
-        f.knock = 2400;
+        f.knock = 3200;
         f.kvx = Math.cos(ang) * power * MANTIS.dir;
         f.kvy = Math.sin(ang) * power;
         f.food = null;
@@ -775,10 +775,10 @@ function update(dt) {
       f.knock -= dt;
       f.x += f.kvx * dt * 0.06;
       f.y += f.kvy * dt * 0.06;
-      if (f.x < 9) { f.x = 9; f.kvx = Math.abs(f.kvx) * 0.85; }
-      if (f.x > W - 9) { f.x = W - 9; f.kvx = -Math.abs(f.kvx) * 0.85; }
-      if (f.y < 8) { f.y = 8; f.kvy = Math.abs(f.kvy) * 0.85; }
-      if (f.y > SAND_Y - 7) { f.y = SAND_Y - 7; f.kvy = -Math.abs(f.kvy) * 0.85; }
+      if (f.x < 9) { f.x = 9; f.kvx = Math.abs(f.kvx) * 0.92; }
+      if (f.x > W - 9) { f.x = W - 9; f.kvx = -Math.abs(f.kvx) * 0.92; }
+      if (f.y < 8) { f.y = 8; f.kvy = Math.abs(f.kvy) * 0.92; }
+      if (f.y > SAND_Y - 7) { f.y = SAND_Y - 7; f.kvy = -Math.abs(f.kvy) * 0.92; }
       const drag = 1 - 0.0005 * dt;
       f.kvx *= drag; f.kvy *= drag;
       f.dir = f.kvx >= 0 ? 1 : -1; // tumbles with each wall hit
