@@ -317,6 +317,7 @@ function makeFish(forceKey) {
     phase: rnd(0, Math.PI * 2),
     retarget: 0,
     food: null,
+    foodCd: 0,
     ate: 0,
     inflated: false,
     puffT: rnd(8000, 20000),
@@ -402,7 +403,11 @@ function log() {}
 function feed(px) {
   const n = ri(3, 5);
   for (let i = 0; i < n; i++) {
-    flakes.push({ x: (px ?? rnd(30, W - 30)) + rnd(-8, 8), y: rnd(2, 8), vy: rnd(0.38, 0.48), life: 1400 });
+    flakes.push({
+      x: (px ?? rnd(30, W - 30)) + rnd(-8, 8), y: rnd(2, 8),
+      vy: rnd(0.38, 0.48), life: 1400,
+      claims: 0, maxClaims: ri(1, 2), grounded: false,
+    });
   }
   log(`feed.sh: ${n} flakes dropped`, "ok");
 }
@@ -737,6 +742,11 @@ function drawChest() {
 }
 
 // ---------- update ----------
+function dropFood(f) {
+  if (f.food && f.food.life > 0) f.food.claims--;
+  f.food = null;
+}
+
 function eat(f, fl) {
   fl.life = 0;
   f.ate++;
@@ -765,6 +775,7 @@ function update(dt) {
         if (SAND_DWELLERS.includes(f.species) || f.species === "jelly") continue;
         if (f.inflated) continue; // spikes: inflated puffer is inedible
         if (Math.abs(f.x - mx) < 7 && Math.abs(f.y - shark.y) < 5) {
+          dropFood(f);
           fishes.splice(i, 1);
           shark.fed = true;
           for (let k = 0; k < 10; k++) {
@@ -803,7 +814,7 @@ function update(dt) {
         f.knock = 3200;
         f.kvx = Math.cos(ang) * power * MANTIS.dir;
         f.kvy = Math.sin(ang) * power;
-        f.food = null;
+        dropFood(f);
         f.inflated = f.species === "puffer"; // puffer panics
         for (let k = 0; k < 6; k++) {
           bubbles.push({ x: f.x + rnd(-2, 2), y: f.y + rnd(-2, 2), r: 1, ph: rnd(0, 6) });
@@ -956,21 +967,28 @@ function update(dt) {
     if (shark && Math.abs(shark.x - f.x) < 75) {
       f.dir = f.x < shark.x ? -1 : 1;
       f.targetY = f.y < shark.y ? 16 : SAND_Y - 14;
-      f.food = null;
+      dropFood(f);
     } else {
-      // choose food target
-      if (!f.food || f.food.life <= 0) {
-        f.food = null;
-        let bd = 70;
+      if (f.foodCd > 0) f.foodCd -= dt;
+      // lost interest: flake gone, or it landed (bottom crumbs are the crab's job)
+      if (f.food && (f.food.life <= 0 || f.food.grounded)) {
+        dropFood(f);
+        f.foodCd = rnd(1500, 3000);
+      }
+      // probabilistic interest: hungry fish react sooner, and a flake
+      // only gets chased by the 1-2 fish that claimed it first
+      if (!f.food && f.foodCd <= 0 && Math.random() < 0.004 * (f.ate < LOVE_AT ? 1 : 0.4) * dt) {
+        let bd = 70, pick = null;
         for (const fl of flakes) {
+          if (fl.grounded || fl.claims >= fl.maxClaims) continue;
           const d = Math.hypot(fl.x - f.x, fl.y - f.y);
-          if (d < bd) { bd = d; f.food = fl; }
+          if (d < bd) { bd = d; pick = fl; }
         }
+        if (pick) { f.food = pick; pick.claims++; }
       }
       if (f.food) {
         f.dir = f.food.x > f.x ? 1 : -1;
         f.targetY = f.food.y;
-        // box check: grounded flakes sit below the swim clamp, so allow extra vertical reach
         if (Math.abs(f.food.x - f.x) < 5 && Math.abs(f.food.y - f.y) < 8) eat(f, f.food);
       } else if (f.retarget <= 0) {
         f.retarget = rnd(2000, 6000);
@@ -1062,7 +1080,12 @@ function update(dt) {
   for (let i = flakes.length - 1; i >= 0; i--) {
     const fl = flakes[i];
     fl.life -= dt * 0.06;
-    if (fl.y < SAND_Y - 4) fl.y += fl.vy * dt * 0.06;
+    if (fl.y < SAND_Y - 4) {
+      fl.y += fl.vy * dt * 0.06;
+    } else if (!fl.grounded) {
+      fl.grounded = true;
+      fl.life = Math.min(fl.life, 210); // landed crumbs fade in ~8s
+    }
     fl.x += Math.sin(t * 0.008 + fl.y) * 0.02 * dt * 0.06;
     if (fl.life <= 0) flakes.splice(i, 1);
   }
