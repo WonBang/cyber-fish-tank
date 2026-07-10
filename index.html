@@ -1603,6 +1603,31 @@ function drawJailFront() {
   }
 }
 
+// pixel gold coin: black outline, gold rim, orange face, S mark, top-left shine
+const COIN_ROWS = [
+  ".ooooo.",
+  "ohhyyyo",
+  "oyyddbo",
+  "oyydbbo",
+  "oyddbbo",
+  "oybbbbo",
+  ".ooooo.",
+];
+const COIN_COLORS = { o: "#1a1208", h: "#ffe89a", y: "#ffc93c", b: "#f0930f", d: "#8a5a10" };
+function drawCoins() {
+  for (const c of coins) {
+    const phc = Math.floor(t * 0.005 + c.x * 0.7) % 4;
+    const scale = phc === 0 ? 1 : phc === 2 ? 0.35 : 0.7; // spins as it falls
+    for (let r = 0; r < 7; r++) {
+      for (let col = 0; col < 7; col++) {
+        const ch = COIN_ROWS[r][col];
+        if (ch === ".") continue;
+        px(c.x + Math.round((col - 3) * scale), c.y + r - 3, COIN_COLORS[ch]);
+      }
+    }
+  }
+}
+
 function drawChest() {
   const X = CHEST.x, Y = CHEST.y, open = CHEST.openT > 0;
   // base
@@ -2098,7 +2123,7 @@ function render() {
     px(e.x, e.y + 1, "#d9b98a"); px(e.x + 1, e.y + 1, "#d9b98a");
   }
   for (const fl of flakes) px(fl.x, fl.y, Math.floor(t * 0.002 + fl.x) % 2 ? "#ffd27a" : "#e8a94e");
-  for (const c of coins) px(c.x, c.y, Math.floor(t * 0.003 + c.x) % 2 ? "#ffd54a" : "#fff6c9");
+  drawCoins();
   for (const f of fishes) drawFish(f);
   drawShark();
   for (const h of hearts) {
