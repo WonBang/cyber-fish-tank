@@ -17,7 +17,112 @@
     justify-content: center;
     padding: 24px 16px;
   }
+  .app {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    max-width: 1180px;
+  }
+  .panel {
+    width: 220px;
+    flex: none;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #111a30, #0a0f1a);
+    border: 1px solid #1b2a45;
+    padding: 10px;
+    font: 12px/1.5 "SF Mono", "Menlo", "Consolas", monospace;
+    color: #cfe3f5;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 86vh;
+  }
+  .wallet {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffd54a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 2px;
+  }
+  .wallet .amt { margin-left: auto; }
+  .tabs { display: flex; gap: 6px; }
+  .tabs button, .panel .btn {
+    flex: 1;
+    background: #0e1830;
+    color: #cfe3f5;
+    border: 1px solid #24406b;
+    border-radius: 6px;
+    font: inherit;
+    padding: 5px 6px;
+    cursor: pointer;
+  }
+  .tabs button.on, .panel .btn.on { background: #1c3a6e; border-color: #46d8ff; color: #fff; }
+  .tabbody { overflow-y: auto; min-height: 0; flex: 1; }
+  .hidden { display: none; }
+  .sect { margin-top: 8px; color: #7fa3c8; font-size: 11px; letter-spacing: 0.08em; }
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 2px;
+    border-bottom: 1px dashed #16233c;
+  }
+  .item .nm { flex: 1; }
+  .item .pr { color: #ffd54a; font-size: 11px; }
+  .item button {
+    background: #16305c;
+    color: #dfeaff;
+    border: 1px solid #2a4a78;
+    border-radius: 5px;
+    font: 11px "SF Mono", "Menlo", "Consolas", monospace;
+    padding: 2px 7px;
+    cursor: pointer;
+  }
+  .item button:disabled { opacity: 0.5; cursor: default; }
+  #dexgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .dexcell {
+    border: 1px solid #1b2a45;
+    border-radius: 6px;
+    padding: 6px 4px 4px;
+    text-align: center;
+    background: #0a1222;
+  }
+  .dexcell canvas { image-rendering: pixelated; width: 100%; max-width: 60px; }
+  .dexcell.undisc { opacity: 0.5; }
+  .dexcell .dnm { font-size: 11px; line-height: 1.3; }
+  .hint { font-size: 10px; color: #7fa3c8; min-height: 14px; }
+  .toasts {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .toast {
+    background: rgba(6, 12, 24, 0.85);
+    border: 1px solid #24406b;
+    color: #cfe3f5;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font: 11px "SF Mono", "Menlo", "Consolas", monospace;
+    animation: tfade 3s forwards;
+  }
+  @keyframes tfade {
+    0% { opacity: 0; transform: translateY(4px); }
+    10% { opacity: 1; transform: none; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
   .frame {
+    flex: 1;
+    min-width: 0;
     width: 100%;
     max-width: 920px;
     padding: 10px;
@@ -28,6 +133,32 @@
       0 0 0 1px #000,
       0 0 60px rgba(70, 216, 255, 0.12),
       0 30px 80px rgba(0, 0, 0, 0.65);
+  }
+  .frame.skin-wood {
+    background: linear-gradient(180deg, #7a5a34, #3a2814);
+    border-color: #8a6236;
+    box-shadow: 0 0 0 1px #241608, 0 30px 80px rgba(0, 0, 0, 0.65);
+  }
+  .frame.skin-neon {
+    background: linear-gradient(180deg, #131c3a, #0a0f1a);
+    border-color: #46d8ff;
+    box-shadow:
+      0 0 0 1px #ff6b9d,
+      0 0 24px rgba(70, 216, 255, 0.55),
+      0 0 60px rgba(255, 107, 157, 0.25),
+      0 30px 80px rgba(0, 0, 0, 0.65);
+  }
+  .frame.skin-gold {
+    background: linear-gradient(180deg, #b98f2a, #5c3f14);
+    border-color: #ffd54a;
+    box-shadow:
+      0 0 0 1px #3a2a08,
+      0 0 40px rgba(255, 213, 74, 0.25),
+      0 30px 80px rgba(0, 0, 0, 0.65);
+  }
+  @media (max-width: 760px) {
+    .app { flex-direction: column; align-items: stretch; }
+    .panel { width: 100%; max-height: none; order: 2; }
   }
   .tankwrap {
     position: relative;
@@ -80,11 +211,25 @@
 </head>
 <body>
 
-<div class="frame">
-  <div class="tankwrap">
-    <canvas id="tank" width="192" height="120" aria-label="픽셀 아트 사이버 어항. 물고기들이 헤엄치는 애니메이션. 클릭하면 먹이를 줄 수 있습니다."></canvas>
-    <div class="scanlines"></div>
-    <div class="vignette"></div>
+<div class="app">
+  <aside class="panel">
+    <div class="wallet">🪙 골드 <span class="amt" id="goldAmt">0</span></div>
+    <div class="tabs">
+      <button id="tabShop" class="on">상점</button>
+      <button id="tabDex">도감</button>
+    </div>
+    <div id="shopBody" class="tabbody"></div>
+    <div id="dexBody" class="tabbody hidden"></div>
+    <button id="sellBtn" class="btn">🏷️ 판매 모드</button>
+    <div class="hint" id="hint"></div>
+  </aside>
+  <div class="frame" id="frame">
+    <div class="tankwrap">
+      <canvas id="tank" width="192" height="120" aria-label="픽셀 아트 사이버 어항. 물고기들이 헤엄치는 애니메이션. 클릭하면 먹이를 줄 수 있습니다."></canvas>
+      <div class="scanlines"></div>
+      <div class="vignette"></div>
+      <div class="toasts" id="toasts"></div>
+    </div>
   </div>
 </div>
 
@@ -308,11 +453,12 @@ function pickSpecies() {
 
 function makeFish(forceKey) {
   const def = forceKey ? SPECIES_DEF.find(d => d.key === forceKey) : pickSpecies();
-  const pal = def.pal || FISH_PALETTES[ri(0, FISH_PALETTES.length - 1)];
+  const palIdx = def.pal ? -1 : ri(0, FISH_PALETTES.length - 1);
+  const pal = def.pal || FISH_PALETTES[palIdx];
   let pid; do { pid = ri(100, 9999); } while (spawnedPids.has(pid));
   spawnedPids.add(pid);
   const f = {
-    species: def.key, pal,
+    species: def.key, pal, palIdx,
     name: def.name || NAMES[ri(0, NAMES.length - 1)],
     pid,
     x: rnd(20, W - 20),
@@ -408,6 +554,342 @@ const plants = [
 // ---------- log ----------
 function log() {}
 
+// ---------- economy / shop / dex ----------
+const CAP = 15; // tank capacity (fish + pending eggs)
+const SAVE_KEY = "cyber-fish-tank-save";
+let save = { gold: 0, frames: [], frame: "", decos: [], dex: {} };
+try {
+  const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+  if (s && typeof s === "object") save = Object.assign(save, s);
+} catch (e) {}
+if (!Array.isArray(save.decos)) save.decos = [];
+if (!Array.isArray(save.frames)) save.frames = [];
+if (typeof save.dex !== "object" || !save.dex) save.dex = {};
+let saveT = 0;
+function persist() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+  }, 400);
+}
+
+const goldEl = document.getElementById("goldAmt");
+const toastsEl = document.getElementById("toasts");
+const shopBody = document.getElementById("shopBody");
+const dexBody = document.getElementById("dexBody");
+const frameEl = document.getElementById("frame");
+const hintEl = document.getElementById("hint");
+const sellBtn = document.getElementById("sellBtn");
+
+function renderGold() { goldEl.textContent = save.gold; }
+function addGold(n) { save.gold += n; renderGold(); persist(); }
+
+function toast(msg) {
+  const d = document.createElement("div");
+  d.className = "toast";
+  d.textContent = msg;
+  toastsEl.appendChild(d);
+  setTimeout(() => d.remove(), 3000);
+  while (toastsEl.children.length > 4) toastsEl.firstChild.remove();
+}
+
+const KOR = {
+  tetra: "테트라", guppy: "구피", angel: "엔젤피시", puffer: "복어", jelly: "해파리",
+  crab: "게", whale: "고래", golden: "황금 물고기", starfish: "불가사리", seahorse: "해마",
+};
+const VARIED = ["tetra", "guppy", "angel", "seahorse"]; // species with random palettes
+
+function discover(species, palIdx) {
+  const list = save.dex[species] || (save.dex[species] = []);
+  const isNewSpecies = list.length === 0;
+  const idx = palIdx == null ? -1 : palIdx;
+  if (list.includes(idx)) return;
+  list.push(idx);
+  if (isNewSpecies) { addGold(30); toast(`도감 등록: ${KOR[species]} +30🪙`); }
+  else if (VARIED.includes(species)) { addGold(5); toast(`새 색상 발견: ${KOR[species]} +5🪙`); }
+  persist();
+  renderDex();
+}
+function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
+
+const EGG_SHOP = [
+  { key: null, label: "랜덤 알", price: 100 },
+  { key: "tetra", price: 120 }, { key: "guppy", price: 120 },
+  { key: "angel", price: 180 }, { key: "starfish", price: 180 },
+  { key: "seahorse", price: 200 }, { key: "crab", price: 220 },
+  { key: "puffer", price: 280 }, { key: "jelly", price: 280 },
+  { key: "whale", price: 700 }, { key: "golden", price: 1500 },
+];
+const SELL_PRICE = {
+  tetra: 40, guppy: 40, angel: 60, starfish: 60, seahorse: 70,
+  crab: 80, puffer: 100, jelly: 100, whale: 250, golden: 500,
+};
+const DECO_SHOP = [
+  { key: "moai", label: "모아이 석상", price: 250 },
+  { key: "neon", label: "네온 사인", price: 350 },
+  { key: "castle", label: "성", price: 400 },
+  { key: "ship", label: "난파선", price: 500 },
+];
+const FRAME_SHOP = [
+  { key: "", label: "기본 프레임", price: 0 },
+  { key: "wood", label: "원목 프레임", price: 300 },
+  { key: "neon", label: "네온 프레임", price: 800 },
+  { key: "gold", label: "황금 프레임", price: 1500 },
+];
+
+function buyEgg(item) {
+  if (fishes.length + eggs.length >= CAP) { toast(`어항이 가득 찼어요 (${CAP}마리)`); return; }
+  if (save.gold < item.price) { toast("골드 부족"); return; }
+  addGold(-item.price);
+  const key = item.key || SPECIES_DEF[ri(0, SPECIES_DEF.length - 1)].key;
+  const def = SPECIES_DEF.find(d => d.key === key);
+  const palIdx = def.pal ? -1 : ri(0, FISH_PALETTES.length - 1);
+  eggs.push({
+    x: rnd(40, 140), y: 8, hatch: rnd(14000, 24000),
+    species: key, pal: def.pal || FISH_PALETTES[palIdx], palIdx,
+  });
+  toast(`${item.key ? KOR[key] + " 알" : "랜덤 알"} 구매 — 알이 떨어집니다`);
+}
+
+function buyDeco(item) {
+  if (save.decos.length >= 6) { toast("장식물은 최대 6개"); return; }
+  if (save.gold < item.price) { toast("골드 부족"); return; }
+  addGold(-item.price);
+  save.decos.push({ type: item.key, x: ri(45, 130) });
+  persist();
+  toast(`${item.label} 설치 — 드래그로 옮길 수 있어요`);
+}
+
+function applyFrame(key) {
+  save.frame = key;
+  persist();
+  frameEl.className = "frame" + (key ? " skin-" + key : "");
+  renderShop();
+}
+
+function shopRow(name, price, btnText, onClick, disabled) {
+  const d = document.createElement("div");
+  d.className = "item";
+  const nm = document.createElement("span");
+  nm.className = "nm";
+  nm.textContent = name;
+  const pr = document.createElement("span");
+  pr.className = "pr";
+  pr.textContent = price != null && price > 0 ? price + "🪙" : "";
+  const b = document.createElement("button");
+  b.textContent = btnText;
+  b.disabled = !!disabled;
+  b.addEventListener("click", onClick);
+  d.append(nm, pr, b);
+  return d;
+}
+
+function renderShop() {
+  shopBody.innerHTML = "";
+  const sect = (title) => {
+    const s = document.createElement("div");
+    s.className = "sect";
+    s.textContent = title;
+    shopBody.appendChild(s);
+  };
+  sect("🥚 물고기 알");
+  for (const it of EGG_SHOP) {
+    shopBody.appendChild(shopRow(it.key ? KOR[it.key] + " 알" : it.label, it.price, "구매", () => buyEgg(it)));
+  }
+  sect("🪸 장식물");
+  for (const it of DECO_SHOP) {
+    shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyDeco(it)));
+  }
+  sect("🖼️ 어항 테두리");
+  for (const it of FRAME_SHOP) {
+    const owned = it.price === 0 || save.frames.includes(it.key);
+    const active = save.frame === it.key;
+    shopBody.appendChild(shopRow(it.label, owned ? null : it.price,
+      active ? "적용중" : owned ? "적용" : "구매",
+      () => {
+        if (!owned) {
+          if (save.gold < it.price) { toast("골드 부족"); return; }
+          addGold(-it.price);
+          save.frames.push(it.key);
+          toast(`${it.label} 잠금 해제!`);
+        }
+        applyFrame(it.key);
+      }, active));
+  }
+}
+
+function dexSprite(key) {
+  if (key === "jelly") return JELLY_FRAMES[0];
+  if (key === "crab") return CRAB_FRAMES[0];
+  if (key === "golden") return SPRITES.guppy;
+  return SPRITES[key];
+}
+
+function renderDex() {
+  dexBody.innerHTML = "";
+  const grid = document.createElement("div");
+  grid.id = "dexgrid";
+  for (const d of SPECIES_DEF) {
+    const found = (save.dex[d.key] || []).length > 0;
+    const cell = document.createElement("div");
+    cell.className = "dexcell" + (found ? "" : " undisc");
+    const rows = dexSprite(d.key);
+    const s = 3;
+    const mc = document.createElement("canvas");
+    mc.width = rows[0].length * s;
+    mc.height = rows.length * s;
+    const mcx = mc.getContext("2d");
+    const firstIdx = (save.dex[d.key] || []).find(i => i >= 0);
+    const pal = d.pal || FISH_PALETTES[firstIdx == null ? 0 : firstIdx];
+    for (let r = 0; r < rows.length; r++) {
+      for (let c = 0; c < rows[r].length; c++) {
+        const ch = rows[r][c];
+        if (ch === ".") continue;
+        mcx.fillStyle = !found ? "#1c2942" :
+          ch === "b" ? pal.b : ch === "f" ? pal.f : ch === "d" ? pal.d :
+          ch === "e" ? "#0a0e14" : "#e8f2fa";
+        mcx.fillRect(c * s, r * s, s, s);
+      }
+    }
+    const nm = document.createElement("div");
+    nm.className = "dnm";
+    nm.textContent = found ? KOR[d.key] : "???";
+    const sub = document.createElement("div");
+    sub.className = "dnm";
+    sub.style.color = "#7fa3c8";
+    sub.textContent = found
+      ? (VARIED.includes(d.key)
+        ? `색 ${(save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`
+        : "발견")
+      : "미발견";
+    cell.append(mc, nm, sub);
+    grid.appendChild(cell);
+  }
+  dexBody.appendChild(grid);
+}
+
+// sell mode: click a fish to sell it
+let sellMode = false;
+sellBtn.addEventListener("click", () => {
+  sellMode = !sellMode;
+  sellBtn.classList.toggle("on", sellMode);
+  hintEl.textContent = sellMode ? "물고기를 클릭하면 판매됩니다" : "";
+});
+
+function sellFish(f) {
+  if (f.species !== "crab" && nonCrabCount() <= MIN_FISH) { toast("어항 최소 인원 — 더 팔 수 없어요"); return; }
+  const price = SELL_PRICE[f.species] || 40;
+  dropFood(f);
+  fishes.splice(fishes.indexOf(f), 1);
+  addGold(price);
+  toast(`${f.customName || KOR[f.species]} 판매 +${price}🪙`);
+  for (let k = 0; k < 4; k++) {
+    coins.push({ x: f.x + rnd(-4, 4), y: f.y + rnd(-3, 3), vy: -rnd(0.1, 0.3), life: rnd(500, 900), ghost: true });
+  }
+  for (let k = 0; k < 6; k++) {
+    bubbles.push({ x: f.x + rnd(-3, 3), y: f.y + rnd(-3, 3), r: 1, ph: rnd(0, 6) });
+  }
+}
+
+// panel tabs
+const tabShop = document.getElementById("tabShop");
+const tabDex = document.getElementById("tabDex");
+function switchTab(shop) {
+  tabShop.classList.toggle("on", shop);
+  tabDex.classList.toggle("on", !shop);
+  shopBody.classList.toggle("hidden", !shop);
+  dexBody.classList.toggle("hidden", shop);
+}
+tabShop.addEventListener("click", () => switchTab(true));
+tabDex.addEventListener("click", () => switchTab(false));
+
+// ---------- decorations ----------
+const DECO_SPRITES = {
+  moai: {
+    pal: { b: "#8a97ab", d: "#55627a" },
+    rows: [
+      ".bbbbb.",
+      ".bbbbb.",
+      "bdbbbdb",
+      "bbdbdbb",
+      "bbbdbbb",
+      "bbbdbbb",
+      "bbdddbb",
+      "bbbbbbb",
+      ".bbbbb.",
+      ".dbbbd.",
+      "ddddddd",
+    ],
+  },
+  castle: {
+    pal: { b: "#7d8aa0", d: "#55627a", e: "#141c2c" },
+    rows: [
+      "b.b.......b.b",
+      "bbb.......bbb",
+      "bdb.......bdb",
+      "bbb.b.b.b.bbb",
+      "bbbbbbbbbbbbb",
+      "bbdbbbbbbbdbb",
+      "bbbbbeeebbbbb",
+      "bbdbbeeebbdbb",
+      "bbbbbeeebbbbb",
+      "ddddddddddddd",
+    ],
+  },
+  ship: {
+    pal: { b: "#6b4a2a", d: "#4a3018", w: "#c9d4e4" },
+    rows: [
+      ".........d.......",
+      "...wwwwwwd.......",
+      "....wwwwwd.......",
+      ".....wwwwd.......",
+      ".........d.......",
+      "b...............b",
+      "bbbbbbbbbbbbbbbbb",
+      ".bbdbbbdbbbdbbb.",
+      "..bbbbbbbbbbbb..",
+    ],
+  },
+  neon: {
+    pal: { f: "#46d8ff", e: "#e8f2fa", d: "#3a4556" },
+    rows: [
+      "ooooooooooooo",
+      "o...........o",
+      "o..f..fff...o",
+      "o.fffffffe..o",
+      "o..f..fff...o",
+      "o...........o",
+      "ooooooooooooo",
+      "......d......",
+      "......d......",
+    ],
+  },
+};
+
+function drawDecos() {
+  for (const d of save.decos) {
+    const sp = DECO_SPRITES[d.type];
+    if (!sp) continue;
+    const rows = sp.rows, h = rows.length, w = rows[0].length;
+    const ox = Math.round(d.x - w / 2), oy = SAND_Y - h;
+    const blink = Math.floor(t * 0.004) % 2;
+    for (let r = 0; r < h; r++) {
+      for (let c = 0; c < rows[r].length; c++) {
+        const ch = rows[r][c];
+        if (ch === ".") continue;
+        let col = ch === "o" ? (blink ? "#ff6b9d" : "#46d8ff") : sp.pal[ch];
+        if (col) px(ox + c, oy + r, col);
+      }
+    }
+    if (d.type === "neon") {
+      cx.globalAlpha = 0.1 + (blink ? 0.06 : 0);
+      cx.fillStyle = blink ? "#ff6b9d" : "#46d8ff";
+      cx.fillRect(ox - 1, oy - 1, w + 2, h - 3);
+      cx.globalAlpha = 1;
+    }
+  }
+}
+
 // ---------- actions ----------
 function feed(px) {
   const n = ri(3, 5);
@@ -498,10 +980,13 @@ function raidWin() {
   // one rare egg drifts down
   const rare = Math.random() < 0.35;
   const sp = rare ? "golden" : ["tetra", "guppy", "angel", "seahorse"][ri(0, 3)];
+  const pi = rare ? -1 : ri(0, FISH_PALETTES.length - 1);
   eggs.push({
     x: rnd(40, 150), y: 26, hatch: rnd(20000, 32000), species: sp,
-    pal: rare ? SPECIES_DEF.find(d => d.key === "golden").pal : FISH_PALETTES[ri(0, FISH_PALETTES.length - 1)],
+    pal: rare ? SPECIES_DEF.find(d => d.key === "golden").pal : FISH_PALETTES[pi],
+    palIdx: pi,
   });
+  addGold(30); // raid victory bounty
   // the whole tank celebrates
   for (const f of fishes) {
     hearts.push({ x: f.x, y: f.y - 5, life: rnd(900, 1600) });
@@ -527,7 +1012,7 @@ function raidFail() {
       setTimeout(() => {
         if (nonCrabCount() >= MIN_FISH) return;
         let nf; do { nf = makeFish(); } while (nf.species === "crab");
-        fishes.push(nf);
+        addFish(nf);
       }, 8000);
     }
   }
@@ -712,7 +1197,7 @@ function imprison(f) {
   return true;
 }
 
-let dragFish = null, dragMoved = 0, suppressClick = false;
+let dragFish = null, dragDeco = null, dragMoved = 0, suppressClick = false;
 cv.addEventListener("mousedown", (e) => {
   const { mx, my } = toLogical(e);
   let best = null, bd = 8;
@@ -727,9 +1212,27 @@ cv.addEventListener("mousedown", (e) => {
     best.knock = 0;
     dragMoved = 0;
     dropFood(best);
+    return;
+  }
+  // no fish grabbed: maybe a decoration
+  for (const d of save.decos) {
+    const sp = DECO_SPRITES[d.type];
+    if (!sp) continue;
+    const w2 = sp.rows[0].length / 2, h = sp.rows.length;
+    if (Math.abs(mx - d.x) < w2 + 2 && my > SAND_Y - h - 3 && my < SAND_Y + 4) {
+      dragDeco = d;
+      dragMoved = 0;
+      break;
+    }
   }
 });
 cv.addEventListener("mousemove", (e) => {
+  if (dragDeco) {
+    const { mx } = toLogical(e);
+    dragMoved += Math.abs(mx - dragDeco.x);
+    dragDeco.x = Math.max(JAIL.right + 8, Math.min(W - 8, mx));
+    return;
+  }
   if (!dragFish) return;
   const { mx, my } = toLogical(e);
   dragMoved += Math.abs(mx - dragFish.x) + Math.abs(my - dragFish.y);
@@ -737,6 +1240,12 @@ cv.addEventListener("mousemove", (e) => {
   dragFish.y = Math.max(6, Math.min(SAND_Y - 3, my));
 });
 function endDrag(e) {
+  if (dragDeco) {
+    if (dragMoved > 3) suppressClick = true;
+    dragDeco = null;
+    persist();
+    return;
+  }
   if (!dragFish) return;
   const f = dragFish;
   dragFish = null;
@@ -761,6 +1270,17 @@ cv.addEventListener("click", (e) => {
   const r = cv.getBoundingClientRect();
   const mx = (e.clientX - r.left) / r.width * W;
   const my = (e.clientY - r.top) / r.height * H;
+  // sell mode: click a fish to sell
+  if (sellMode) {
+    let pick = null, pd = 9;
+    for (const f of fishes) {
+      if (f.jail || f.dragged) continue;
+      const d = Math.hypot(f.x - mx, f.y - my);
+      if (d < pd) { pd = d; pick = f; }
+    }
+    if (pick) sellFish(pick);
+    return;
+  }
   // during a raid fight, clicks are battle commands
   if (raid && raid.phase === "fight") {
     const b = raid.boss;
@@ -1164,7 +1684,7 @@ function update(dt) {
             setTimeout(() => {
               if (nonCrabCount() >= MIN_FISH) return;
               let nf; do { nf = makeFish(); } while (nf.species === "crab");
-              fishes.push(nf);
+              addFish(nf);
             }, 8000);
           }
           break;
@@ -1208,7 +1728,7 @@ function update(dt) {
   breedT -= dt;
   if (breedT <= 0) {
     breedT = rnd(25000, 50000);
-    if (!raid && eggs.length === 0 && fishes.length < 14) {
+    if (!raid && eggs.length === 0 && fishes.length < CAP - 1) {
       outer:
       for (let i = 0; i < fishes.length; i++) {
         for (let j = i + 1; j < fishes.length; j++) {
@@ -1219,12 +1739,13 @@ function update(dt) {
           if (Math.hypot(a.x - b.x, a.y - b.y) < 24) {
             const n = ri(1, 2);
             for (let k = 0; k < n; k++) {
+              const par = Math.random() < 0.5 ? a : b;
               eggs.push({
                 x: (a.x + b.x) / 2 + rnd(-4, 4),
                 y: (a.y + b.y) / 2,
                 hatch: rnd(22000, 38000),
                 species: a.species,
-                pal: Math.random() < 0.5 ? a.pal : b.pal,
+                pal: par.pal, palIdx: par.palIdx,
               });
             }
             break outer;
@@ -1240,11 +1761,12 @@ function update(dt) {
     e.hatch -= dt;
     if (e.hatch <= 0) {
       eggs.splice(i, 1);
-      if (fishes.length < 14) {
+      if (fishes.length < CAP) {
         const baby = makeFish(e.species);
         baby.x = e.x; baby.y = Math.min(e.y, SAND_Y - 12); baby.pal = e.pal;
+        if (e.palIdx != null) baby.palIdx = e.palIdx;
         if (e.species === "crab" || e.species === "starfish") baby.y = SAND_Y - 4;
-        fishes.push(baby);
+        addFish(baby);
         for (let k = 0; k < 4; k++) bubbles.push({ x: e.x + rnd(-2, 2), y: e.y, r: 1, ph: rnd(0, 6) });
       }
     }
@@ -1254,7 +1776,7 @@ function update(dt) {
   driftT -= dt;
   if (driftT <= 0) {
     driftT = rnd(90000, 180000);
-    if (!raid && fishes.length < 12) fishes.push(makeFish());
+    if (!raid && fishes.length < 12) addFish(makeFish());
   }
 
   // fish
@@ -1511,7 +2033,10 @@ function update(dt) {
     c.y += c.vy * dt * 0.06;
     c.vy += 0.004 * dt * 0.06;
     c.life -= dt;
-    if (c.life <= 0 || c.y > SAND_Y - 1) coins.splice(i, 1);
+    if (c.life <= 0 || c.y > SAND_Y - 1) {
+      coins.splice(i, 1);
+      if (!c.ghost) addGold(1); // every coin lands in the wallet
+    }
   }
   // bubbles
   if (Math.random() < 0.03 * dt * 0.06) {
@@ -1547,6 +2072,7 @@ function render() {
   for (const p of plants) if (!p.front) drawPlant(p);
   drawRocks();
   drawSand();
+  drawDecos();
   drawJailBack();
   drawChest();
   if (MANTIS.show > 0) {
@@ -1609,12 +2135,16 @@ function loop(now) {
 }
 
 // ---------- boot ----------
-fishes.push(makeFish("crab"));   // ferris always ships
-fishes.push(makeFish("jelly"));
-fishes.push(makeFish("puffer"));
+renderGold();
+renderShop();
+renderDex();
+if (save.frame && (save.frames.includes(save.frame) || save.frame === "")) applyFrame(save.frame);
+addFish(makeFish("crab"));   // ferris always ships
+addFish(makeFish("jelly"));
+addFish(makeFish("puffer"));
 while (nonCrabCount() < MIN_FISH + 1) {
   let nf; do { nf = makeFish(); } while (nf.species === "crab");
-  fishes.push(nf);
+  addFish(nf);
 }
 log("initializing tank driver… ok");
 log("water pump daemon started (pid 42)", "ok");
