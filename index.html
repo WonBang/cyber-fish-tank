@@ -611,10 +611,10 @@ let coinURL = null;
 function coinImg(size) {
   if (!coinURL) {
     const c = document.createElement("canvas");
-    c.width = 7; c.height = 7;
+    c.width = COIN_ROWS.length; c.height = COIN_ROWS.length;
     const g = c.getContext("2d");
-    for (let r = 0; r < 7; r++) {
-      for (let col = 0; col < 7; col++) {
+    for (let r = 0; r < COIN_ROWS.length; r++) {
+      for (let col = 0; col < COIN_ROWS.length; col++) {
         const ch = COIN_ROWS[r][col];
         if (ch === ".") continue;
         g.fillStyle = COIN_COLORS[ch];
@@ -1642,26 +1642,29 @@ function drawJailFront() {
   }
 }
 
-// pixel gold coin: black outline, gold rim, orange face, S mark, top-left shine
+// pixel gold coin: round, black outline, warm gold face, S mark, top-left shine
 const COIN_ROWS = [
-  ".ooooo.",
-  "ohhyyyo",
-  "oyyddbo",
-  "oyydbbo",
-  "oyddbbo",
-  "oybbbbo",
-  ".ooooo.",
+  "...ooo...",
+  ".oohhyoo.",
+  ".ohhyyyo.",
+  "ohhyyyyso",
+  "ohyyyyyso",
+  "oyyyyysso",
+  ".oyyysso.",
+  ".oosssoo.",
+  "...ooo...",
 ];
-const COIN_COLORS = { o: "#1a1208", h: "#ffe89a", y: "#ffc93c", b: "#f0930f", d: "#8a5a10" };
+const COIN_COLORS = { o: "#1a1208", h: "#fff2b8", y: "#ffd54a", s: "#d99b26" };
+const COIN_H = COIN_ROWS.length, COIN_C = (COIN_H - 1) / 2;
 function drawCoins() {
   for (const c of coins) {
     const phc = Math.floor(t * 0.005 + c.x * 0.7) % 4;
     const scale = phc === 0 ? 1 : phc === 2 ? 0.35 : 0.7; // spins as it falls
-    for (let r = 0; r < 7; r++) {
-      for (let col = 0; col < 7; col++) {
+    for (let r = 0; r < COIN_H; r++) {
+      for (let col = 0; col < COIN_H; col++) {
         const ch = COIN_ROWS[r][col];
         if (ch === ".") continue;
-        px(c.x + Math.round((col - 3) * scale), c.y + r - 3, COIN_COLORS[ch]);
+        px(c.x + Math.round((col - COIN_C) * scale), c.y + r - COIN_C, COIN_COLORS[ch]);
       }
     }
   }
