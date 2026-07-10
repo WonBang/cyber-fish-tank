@@ -49,6 +49,13 @@
     padding: 2px 2px;
   }
   .wallet .amt { margin-left: auto; }
+  .coin-ico {
+    width: 13px;
+    height: 13px;
+    image-rendering: pixelated;
+    vertical-align: -2px;
+    margin: 0 1px;
+  }
   .tabs { display: flex; gap: 6px; }
   .tabs button, .panel .btn {
     flex: 1;
@@ -213,7 +220,7 @@
 
 <div class="app">
   <aside class="panel">
-    <div class="wallet">🪙 골드 <span class="amt" id="goldAmt">0</span></div>
+    <div class="wallet" id="wallet">골드 <span class="amt" id="goldAmt">0</span></div>
     <div class="tabs">
       <button id="tabShop" class="on">상점</button>
       <button id="tabDex">도감</button>
@@ -599,10 +606,39 @@ const sellBtn = document.getElementById("sellBtn");
 function renderGold() { goldEl.textContent = save.gold; }
 function addGold(n) { save.gold += n; renderGold(); persist(); }
 
+// pixel coin icon for the UI, baked from the in-tank coin sprite
+let coinURL = null;
+function coinImg(size) {
+  if (!coinURL) {
+    const c = document.createElement("canvas");
+    c.width = 7; c.height = 7;
+    const g = c.getContext("2d");
+    for (let r = 0; r < 7; r++) {
+      for (let col = 0; col < 7; col++) {
+        const ch = COIN_ROWS[r][col];
+        if (ch === ".") continue;
+        g.fillStyle = COIN_COLORS[ch];
+        g.fillRect(col, r, 1, 1);
+      }
+    }
+    coinURL = c.toDataURL();
+  }
+  const img = document.createElement("img");
+  img.src = coinURL;
+  img.className = "coin-ico";
+  img.alt = "골드";
+  if (size) img.style.width = img.style.height = size + "px";
+  return img;
+}
+
 function toast(msg) {
   const d = document.createElement("div");
   d.className = "toast";
-  d.textContent = msg;
+  const parts = String(msg).split("🪙");
+  parts.forEach((p, i) => {
+    d.append(p);
+    if (i < parts.length - 1) d.appendChild(coinImg(11));
+  });
   toastsEl.appendChild(d);
   setTimeout(() => d.remove(), 3000);
   while (toastsEl.children.length > 4) toastsEl.firstChild.remove();
@@ -690,7 +726,10 @@ function shopRow(name, price, btnText, onClick, disabled) {
   nm.textContent = name;
   const pr = document.createElement("span");
   pr.className = "pr";
-  pr.textContent = price != null && price > 0 ? price + "🪙" : "";
+  if (price != null && price > 0) {
+    pr.append(String(price));
+    pr.appendChild(coinImg(10));
+  }
   const b = document.createElement("button");
   b.textContent = btnText;
   b.disabled = !!disabled;
@@ -2175,6 +2214,7 @@ function loop(now) {
 }
 
 // ---------- boot ----------
+document.getElementById("wallet").prepend(coinImg(15));
 renderGold();
 renderShop();
 renderDex();
