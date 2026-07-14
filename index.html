@@ -1801,7 +1801,8 @@ function claimFlake(f, range) {
   for (const fl of flakes) {
     if (fl.life <= 0 || fl.claims >= fl.maxClaims) continue;
     if (fl.x < JAIL.right + 5) continue; // jail meals belong to the inmates — the wall blocks outsiders
-    const d = Math.hypot(fl.x - f.x, fl.y - f.y);
+    // grounded crumbs count as closer than they are, so floor cleanup wins ties
+    const d = Math.hypot(fl.x - f.x, fl.y - f.y) * (fl.grounded ? 0.6 : 1);
     if (d < bd) { bd = d; pick = fl; }
   }
   if (pick) {
@@ -1826,7 +1827,7 @@ function eat(f, fl) {
   f.food = null;
   f.retarget = 0;
   // still more food in the water? chain straight to the next bite
-  if (!f.jail && !SAND_DWELLERS.includes(f.species) && f.species !== "jelly") claimFlake(f, 90);
+  if (!f.jail && !SAND_DWELLERS.includes(f.species) && f.species !== "jelly") claimFlake(f, 150);
 }
 
 function update(dt) {
@@ -2137,7 +2138,7 @@ function update(dt) {
       // probabilistic interest: hungry fish react sooner, and a flake
       // only gets chased by the 1-2 fish that claimed it first
       if (!raid && !f.food && f.foodCd <= 0 && Math.random() < 0.012 * (0.6 + 0.4 * (1 - f.sat / 100)) * dt) {
-        claimFlake(f, 90);
+        claimFlake(f, 150);
       }
       if (f.food) {
         f.dir = f.food.x > f.x ? 1 : -1;
@@ -2150,7 +2151,7 @@ function update(dt) {
         }
       } else if (f.retarget <= 0) {
         f.retarget = rnd(2000, 6000);
-        f.targetY = rnd(14, SAND_Y - 26);
+        f.targetY = rnd(14, SAND_Y - 14); // wander the full water column, not just the upper half
         if (Math.random() < 0.35) f.dir *= -1;
       }
     }
