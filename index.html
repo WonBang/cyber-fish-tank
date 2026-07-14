@@ -79,6 +79,13 @@
     border-bottom: 1px dashed #16233c;
   }
   .item .nm { flex: 1; }
+  .odds {
+    padding: 3px 2px 5px;
+    border-bottom: 1px dashed #16233c;
+    color: #7fa3c8;
+    font-size: 10px;
+    line-height: 1.5;
+  }
   .item .pr { color: #ffd54a; font-size: 11px; }
   .item button {
     background: #16305c;
@@ -562,7 +569,7 @@ const plants = [
 function log() {}
 
 // ---------- economy / shop / dex ----------
-const CAP = 15; // tank capacity (fish + pending eggs)
+const CAP = 30; // tank capacity (fish + pending eggs)
 const SAVE_KEY = "cyber-fish-tank-save";
 let save = { gold: 0, frames: [], frame: "", decos: [], dex: {} };
 try {
@@ -692,7 +699,7 @@ function buyEgg(item) {
   if (fishes.length + eggs.length >= CAP) { toast(`어항이 가득 찼어요 (${CAP}마리)`); return; }
   if (save.gold < item.price) { toast("골드 부족"); return; }
   addGold(-item.price);
-  const key = item.key || SPECIES_DEF[ri(0, SPECIES_DEF.length - 1)].key;
+  const key = item.key || pickSpecies().key;
   const def = SPECIES_DEF.find(d => d.key === key);
   const palIdx = def.pal ? -1 : ri(0, FISH_PALETTES.length - 1);
   eggs.push({
@@ -700,6 +707,18 @@ function buyEgg(item) {
     species: key, pal: def.pal || FISH_PALETTES[palIdx], palIdx,
   });
   toast(`${item.key ? KOR[key] + " 알" : "랜덤 알"} 구매 — 알이 떨어집니다`);
+}
+
+// random-egg drop rates, derived from the same SPECIES_DEF weights pickSpecies() rolls
+function eggOddsRow() {
+  const total = SPECIES_DEF.reduce((s, d) => s + d.w, 0);
+  const d = document.createElement("div");
+  d.className = "odds";
+  d.textContent = "확률: " + [...SPECIES_DEF]
+    .sort((a, b) => b.w - a.w)
+    .map(s => `${KOR[s.key]} ${(s.w / total * 100).toFixed(1)}%`)
+    .join(" · ");
+  return d;
 }
 
 function buyDeco(item) {
@@ -749,6 +768,7 @@ function renderShop() {
   sect("🥚 물고기 알");
   for (const it of EGG_SHOP) {
     shopBody.appendChild(shopRow(it.key ? KOR[it.key] + " 알" : it.label, it.price, "구매", () => buyEgg(it)));
+    if (!it.key) shopBody.appendChild(eggOddsRow());
   }
   sect("🪸 장식물");
   for (const it of DECO_SHOP) {
