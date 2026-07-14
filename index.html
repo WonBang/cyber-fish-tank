@@ -86,6 +86,29 @@
     font-size: 10px;
     line-height: 1.5;
   }
+  .odds button {
+    background: none;
+    border: none;
+    color: #7fa3c8;
+    font: 10px "SF Mono", "Menlo", "Consolas", monospace;
+    padding: 0;
+    cursor: pointer;
+  }
+  .odds button:hover { color: #cfe3f5; }
+  .feedbar { display: flex; gap: 4px; }
+  .feedbar button {
+    flex: 1;
+    background: #0e1830;
+    color: #cfe3f5;
+    border: 1px solid #24406b;
+    border-radius: 6px;
+    font: 10px "SF Mono", "Menlo", "Consolas", monospace;
+    padding: 3px 2px;
+    cursor: pointer;
+  }
+  .feedbar button.on { background: #1c3a6e; border-color: #46d8ff; color: #fff; }
+  .feedbar button .cnt { color: #7fa3c8; }
+  .feedbar button.on .cnt { color: #bfe3ff; }
   .item .pr { color: #ffd54a; font-size: 11px; }
   .item button {
     background: #16305c;
@@ -232,6 +255,7 @@
       <button id="tabShop" class="on">상점</button>
       <button id="tabDex">도감</button>
     </div>
+    <div class="feedbar" id="feedbar"></div>
     <div id="shopBody" class="tabbody"></div>
     <div id="dexBody" class="tabbody hidden"></div>
     <button id="sellBtn" class="btn">🏷️ 판매 모드</button>
@@ -355,6 +379,30 @@ const SPRITES = {
     "...dddddddddddddd.....",
     "....d..d..d..d........",
   ],
+  clown: [
+    "f..bdbbd..",
+    "ff.bdbbdb.",
+    "ffbbdbbdeb",
+    "ff.bdbbdb.",
+    "f..bdbbd..",
+  ],
+  sword: [
+    "f...bbbb.......",
+    "ff.bbbbbbb.....",
+    "ffbbbbbbbebdddd",
+    "ff.bbbbbbb.....",
+    "f...bbbb.......",
+  ],
+  beluga: [
+    "f.....bbbbbb......",
+    "ff..bbbbbbbbbb....",
+    ".ffbbbbbbbbbbbbb..",
+    ".fbbbbbbbbbbbbeb..",
+    "ffbbbbbbbbbbbbbbd.",
+    ".fbbbbbbbbbbbbbb..",
+    "..bbbbbbbbbbbb....",
+    "....dddd..........",
+  ],
 };
 const JELLY_FRAMES = [
   [
@@ -434,6 +482,9 @@ const SPECIES_DEF = [
   { key: "golden", w: 4,  name: "sudo",     pal: { b: "#ffd54a", d: "#c79a1e", f: "#ffe89a" } },
   { key: "starfish", w: 5, name: "star",    pal: { b: "#ff8a5c", d: "#c25a30", f: "#ff8a5c" } },
   { key: "seahorse", w: 6, name: "pony" },
+  { key: "clown",  w: 12, name: "nemo",     pal: { b: "#ff8c42", d: "#f5f5f5", f: "#e0561e" } },
+  { key: "sword",  w: 5,  name: "marlin",   pal: { b: "#4f7fae", d: "#2e5480", f: "#7fa8d0" } },
+  { key: "beluga", w: 2,  name: "bora",     pal: { b: "#e9f2f8", d: "#b9c9d8", f: "#d3e2ec" } },
 ];
 
 // ---------- world state ----------
@@ -479,7 +530,7 @@ function makeFish(forceKey) {
     y: rnd(16, SAND_Y - 24),
     dir: Math.random() < 0.5 ? 1 : -1,
     vx: 0,
-    speed: def.key === "whale" ? rnd(0.105, 0.165) : rnd(0.27, 0.51),
+    speed: def.key === "whale" || def.key === "beluga" ? rnd(0.105, 0.165) : rnd(0.27, 0.51),
     targetY: 0,
     phase: rnd(0, Math.PI * 2),
     retarget: 0,
@@ -493,11 +544,13 @@ function makeFish(forceKey) {
     burstT: rnd(0, 2000), thrust: 1, scurry: 0,
     aggro: false, aggroT: 0, aggroY: 0,
     jail: null, dragged: false,
+    sat: 0, dietTier: 0, // satiety gates breeding; diet tier caps the egg grade
   };
   if (def.key === "crab") { f.y = SAND_Y - 4; f.speed = rnd(0.075, 0.135); }
   if (def.key === "jelly") { f.speed = rnd(0.02, 0.05); }
   if (def.key === "starfish") { f.y = SAND_Y - 3; f.speed = rnd(0.008, 0.018); }
   if (def.key === "seahorse") { f.speed = rnd(0.03, 0.06); }
+  if (def.key === "sword") { f.speed = rnd(0.45, 0.7); } // fastest fish in the tank
   return f;
 }
 
@@ -571,7 +624,7 @@ function log() {}
 // ---------- economy / shop / dex ----------
 const CAP = 30; // tank capacity (fish + pending eggs)
 const SAVE_KEY = "cyber-fish-tank-save";
-let save = { gold: 0, frames: [], frame: "", decos: [], dex: {} };
+let save = { gold: 0, frames: [], frame: "", decos: [], dex: {}, feed: { basic: 30, prime: 0, golden: 0 } };
 try {
   const s = JSON.parse(localStorage.getItem(SAVE_KEY));
   if (s && typeof s === "object") save = Object.assign(save, s);
@@ -579,15 +632,18 @@ try {
 if (!Array.isArray(save.decos)) save.decos = [];
 if (!Array.isArray(save.frames)) save.frames = [];
 if (typeof save.dex !== "object" || !save.dex) save.dex = {};
+if (typeof save.feed !== "object" || !save.feed) save.feed = { basic: 30, prime: 0, golden: 0 };
 let saveT = 0;
 function snapshotTank() {
   save.fish = fishes.map(f => ({
     s: f.species, p: f.palIdx, n: f.name, c: f.customName || "",
     a: f.ate, x: Math.round(f.x), y: Math.round(f.y),
+    st: Math.round(f.sat), dt: f.dietTier,
   }));
   save.eggs = eggs.map(e => ({
     s: e.species, p: e.palIdx == null ? -1 : e.palIdx,
     h: Math.round(e.hatch), x: Math.round(e.x), y: Math.round(e.y),
+    g: e.grade == null ? -1 : e.grade,
   }));
 }
 function persistNow() {
@@ -609,6 +665,8 @@ const dexBody = document.getElementById("dexBody");
 const frameEl = document.getElementById("frame");
 const hintEl = document.getElementById("hint");
 const sellBtn = document.getElementById("sellBtn");
+const feedbarEl = document.getElementById("feedbar");
+let feedTier = 0; // which feed the next water click scatters
 
 function renderGold() { goldEl.textContent = save.gold; }
 function addGold(n) { save.gold += n; renderGold(); persist(); }
@@ -654,6 +712,7 @@ function toast(msg) {
 const KOR = {
   tetra: "테트라", guppy: "구피", angel: "엔젤피시", puffer: "복어", jelly: "해파리",
   crab: "게", whale: "고래", golden: "황금 물고기", starfish: "불가사리", seahorse: "해마",
+  clown: "흰동가리", sword: "황새치", beluga: "벨루가",
 };
 const VARIED = ["tetra", "guppy", "angel", "seahorse"]; // species with random palettes
 
@@ -670,17 +729,51 @@ function discover(species, palIdx) {
 }
 function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
 
-const EGG_SHOP = [
-  { key: null, label: "랜덤 알", price: 100 },
-  { key: "tetra", price: 120 }, { key: "guppy", price: 120 },
-  { key: "angel", price: 180 }, { key: "starfish", price: 180 },
-  { key: "seahorse", price: 200 }, { key: "crab", price: 220 },
-  { key: "puffer", price: 280 }, { key: "jelly", price: 280 },
-  { key: "whale", price: 700 }, { key: "golden", price: 1500 },
+// feed tiers: pure buff — no starvation penalty, satiety just gates breeding
+const FEED_DEF = [
+  { key: "basic",  label: "일반 사료", price: 20,  pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
+  { key: "prime",  label: "고급 사료", price: 120, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
+  { key: "golden", label: "황금 사료", price: 400, pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
 ];
+const BREED_SAT = 60;
+// graded gacha eggs: each tier's pool is a superset of the tier below —
+// rarer fish just take a bigger share as the grade goes up
+const EGG_SHOP = [
+  { grade: 0, label: "일반 알", price: 100 },
+  { grade: 1, label: "고급 알", price: 400 },
+  { grade: 2, label: "전설 알", price: 1200 },
+];
+const EGG_POOLS = [
+  [ ["tetra", 30], ["guppy", 30], ["clown", 16], ["angel", 12], ["starfish", 6], ["seahorse", 6] ],
+  [ ["tetra", 12], ["guppy", 12], ["clown", 8], ["angel", 8], ["starfish", 5], ["seahorse", 5],
+    ["crab", 14], ["puffer", 12], ["jelly", 12], ["sword", 9], ["whale", 3] ],
+  [ ["tetra", 10], ["guppy", 10], ["clown", 8], ["angel", 8], ["starfish", 4.5], ["seahorse", 4.5],
+    ["crab", 11], ["puffer", 10], ["jelly", 10], ["sword", 8], ["whale", 7],
+    ["golden", 8.5], ["beluga", 0.5] ],
+];
+// parent diet (lower of the pair) caps the egg grade; richer feed only raises the odds
+const BREED_EGG_ODDS = [
+  [1, 0, 0],
+  [0.6, 0.4, 0],
+  [0.4, 0.4, 0.2],
+];
+function rollEggGrade(diet) {
+  const odds = BREED_EGG_ODDS[diet] || BREED_EGG_ODDS[0];
+  let roll = Math.random();
+  for (let g = 0; g < odds.length; g++) { roll -= odds[g]; if (roll <= 0) return g; }
+  return 0;
+}
+function rollEggSpecies(grade) {
+  const pool = EGG_POOLS[grade] || EGG_POOLS[0];
+  const total = pool.reduce((s, p) => s + p[1], 0);
+  let roll = Math.random() * total;
+  for (const [key, w] of pool) { roll -= w; if (roll <= 0) return key; }
+  return pool[0][0];
+}
 const SELL_PRICE = {
-  tetra: 40, guppy: 40, angel: 60, starfish: 60, seahorse: 70,
-  crab: 80, puffer: 100, jelly: 100, whale: 250, golden: 500,
+  tetra: 40, guppy: 40, clown: 55, angel: 60, starfish: 60, seahorse: 70,
+  crab: 80, puffer: 100, jelly: 100, sword: 140, whale: 250, golden: 500,
+  beluga: 1000,
 };
 const DECO_SHOP = [
   { key: "moai", label: "모아이 석상", price: 250 },
@@ -695,29 +788,48 @@ const FRAME_SHOP = [
   { key: "gold", label: "황금 프레임", price: 1500 },
 ];
 
+// graded eggs roll their species at hatch time — suspense until it cracks
+function dropGradeEgg(grade, x, y, hatch) {
+  eggs.push({ x, y, hatch, grade, species: null, pal: null, palIdx: -1 });
+}
+
 function buyEgg(item) {
   if (fishes.length + eggs.length >= CAP) { toast(`어항이 가득 찼어요 (${CAP}마리)`); return; }
   if (save.gold < item.price) { toast("골드 부족"); return; }
   addGold(-item.price);
-  const key = item.key || pickSpecies().key;
-  const def = SPECIES_DEF.find(d => d.key === key);
-  const palIdx = def.pal ? -1 : ri(0, FISH_PALETTES.length - 1);
-  eggs.push({
-    x: rnd(40, 140), y: 8, hatch: rnd(14000, 24000),
-    species: key, pal: def.pal || FISH_PALETTES[palIdx], palIdx,
-  });
-  toast(`${item.key ? KOR[key] + " 알" : "랜덤 알"} 구매 — 알이 떨어집니다`);
+  dropGradeEgg(item.grade, rnd(40, 140), 8, rnd(14000, 24000));
+  toast(`${item.label} 구매 — 알이 떨어집니다`);
 }
 
-// random-egg drop rates, derived from the same SPECIES_DEF weights pickSpecies() rolls
-function eggOddsRow() {
-  const total = SPECIES_DEF.reduce((s, d) => s + d.w, 0);
+function buyFeed(item) {
+  if (save.gold < item.price) { toast("골드 부족"); return; }
+  addGold(-item.price);
+  save.feed[item.key] = (save.feed[item.key] || 0) + item.pack;
+  persist();
+  renderFeedBar();
+  toast(`${item.label} ×${item.pack} 구매`);
+}
+
+// per-grade drop rates, derived from the same EGG_POOLS the gacha rolls
+const oddsOpen = [false, false, false]; // survives shop re-renders
+function eggOddsRow(grade) {
+  const pool = EGG_POOLS[grade];
+  const total = pool.reduce((s, p) => s + p[1], 0);
   const d = document.createElement("div");
   d.className = "odds";
-  d.textContent = "확률: " + [...SPECIES_DEF]
-    .sort((a, b) => b.w - a.w)
-    .map(s => `${KOR[s.key]} ${(s.w / total * 100).toFixed(1)}%`)
+  const b = document.createElement("button");
+  const txt = document.createElement("div");
+  txt.textContent = "확률: " + [...pool]
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, w]) => `${KOR[key]} ${(w / total * 100).toFixed(1)}%`)
     .join(" · ");
+  const sync = () => {
+    b.textContent = oddsOpen[grade] ? "확률 접기 ▲" : "확률 보기 ▼";
+    txt.classList.toggle("hidden", !oddsOpen[grade]);
+  };
+  b.addEventListener("click", () => { oddsOpen[grade] = !oddsOpen[grade]; sync(); });
+  sync();
+  d.append(b, txt);
   return d;
 }
 
@@ -765,10 +877,14 @@ function renderShop() {
     s.textContent = title;
     shopBody.appendChild(s);
   };
+  sect("🍞 먹이");
+  for (const it of FEED_DEF) {
+    shopBody.appendChild(shopRow(`${it.label} ×${it.pack}`, it.price, "구매", () => buyFeed(it)));
+  }
   sect("🥚 물고기 알");
   for (const it of EGG_SHOP) {
-    shopBody.appendChild(shopRow(it.key ? KOR[it.key] + " 알" : it.label, it.price, "구매", () => buyEgg(it)));
-    if (!it.key) shopBody.appendChild(eggOddsRow());
+    shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyEgg(it)));
+    shopBody.appendChild(eggOddsRow(it.grade));
   }
   sect("🪸 장식물");
   for (const it of DECO_SHOP) {
@@ -965,8 +1081,29 @@ function drawDecos() {
 }
 
 // ---------- actions ----------
+function renderFeedBar() {
+  feedbarEl.innerHTML = "";
+  FEED_DEF.forEach((fd, i) => {
+    const b = document.createElement("button");
+    b.className = i === feedTier ? "on" : "";
+    b.append(fd.label.replace(" 사료", ""), " ");
+    const cnt = document.createElement("span");
+    cnt.className = "cnt";
+    cnt.textContent = `×${save.feed[fd.key] || 0}`;
+    b.appendChild(cnt);
+    b.addEventListener("click", () => { feedTier = i; renderFeedBar(); });
+    feedbarEl.appendChild(b);
+  });
+}
+
 function feed(px) {
-  const n = ri(3, 5);
+  const fd = FEED_DEF[feedTier];
+  const stock = save.feed[fd.key] || 0;
+  if (stock <= 0) { toast(`${fd.label}가 없어요 — 상점에서 구매하세요`); return; }
+  const n = Math.min(stock, ri(3, 5));
+  save.feed[fd.key] = stock - n;
+  persist();
+  renderFeedBar();
   const inJail = px !== undefined && px < JAIL.right + 3;
   for (let i = 0; i < n; i++) {
     const fx = inJail
@@ -975,7 +1112,7 @@ function feed(px) {
     flakes.push({
       x: fx, y: rnd(2, 8),
       vy: rnd(0.38, 0.48), life: 1400,
-      claims: 0, maxClaims: ri(1, 2), grounded: false,
+      claims: 0, maxClaims: ri(1, 2), grounded: false, tier: feedTier,
     });
   }
   log(`feed.sh: ${n} flakes dropped`, "ok");
@@ -1051,15 +1188,8 @@ function raidWin() {
   for (let k = 0; k < 16; k++) {
     coins.push({ x: rnd(12, W - 12), y: rnd(-14, 0), vy: rnd(0.05, 0.2), life: rnd(1600, 2800) });
   }
-  // one rare egg drifts down
-  const rare = Math.random() < 0.35;
-  const sp = rare ? "golden" : ["tetra", "guppy", "angel", "seahorse"][ri(0, 3)];
-  const pi = rare ? -1 : ri(0, FISH_PALETTES.length - 1);
-  eggs.push({
-    x: rnd(40, 150), y: 26, hatch: rnd(20000, 32000), species: sp,
-    pal: rare ? SPECIES_DEF.find(d => d.key === "golden").pal : FISH_PALETTES[pi],
-    palIdx: pi,
-  });
+  // one bounty egg drifts down — 35% legendary
+  dropGradeEgg(Math.random() < 0.35 ? 2 : 0, rnd(40, 150), 26, rnd(20000, 32000));
   addGold(30); // raid victory bounty
   // the whole tank celebrates
   for (const f of fishes) {
@@ -1260,7 +1390,7 @@ function toLogical(e) {
 }
 
 function imprison(f) {
-  if (f.species === "whale") return false; // doesn't fit through the door
+  if (f.species === "whale" || f.species === "beluga") return false; // doesn't fit through the door
   const slot = JAIL.slots.findIndex(s => s === null);
   if (slot === -1) return false; // jail full
   JAIL.slots[slot] = f;
@@ -1720,6 +1850,8 @@ function dropFood(f) {
 function eat(f, fl) {
   fl.life = 0;
   f.ate++;
+  f.sat = Math.min(100, f.sat + FEED_DEF[fl.tier || 0].sat);
+  f.dietTier = fl.tier || 0;
   if (f.ate >= LOVE_AT) hearts.push({ x: f.x, y: f.y - 5, life: 1100 });
   if (f.ate === 5) log(`${f.name}[${f.pid}] promoted to senior fish 👑`, "ok");
   else log(`${f.name}[${f.pid}] ate flake · exit 0`, "ok");
@@ -1838,18 +1970,15 @@ function update(dt) {
           if (a.species !== b.species) continue;
           if (SAND_DWELLERS.includes(a.species) || a.species === "jelly") continue;
           if (a.jail || b.jail || a.dragged || b.dragged) continue;
+          if (a.sat < BREED_SAT || b.sat < BREED_SAT) continue; // both must be well fed
           if (Math.hypot(a.x - b.x, a.y - b.y) < 24) {
+            // diet of the lesser-fed parent caps the egg grade
+            const grade = rollEggGrade(Math.min(a.dietTier, b.dietTier));
             const n = ri(1, 2);
             for (let k = 0; k < n; k++) {
-              const par = Math.random() < 0.5 ? a : b;
-              eggs.push({
-                x: (a.x + b.x) / 2 + rnd(-4, 4),
-                y: (a.y + b.y) / 2,
-                hatch: rnd(22000, 38000),
-                species: a.species,
-                pal: par.pal, palIdx: par.palIdx,
-              });
+              dropGradeEgg(grade, (a.x + b.x) / 2 + rnd(-4, 4), (a.y + b.y) / 2, rnd(22000, 38000));
             }
+            a.sat -= BREED_SAT; b.sat -= BREED_SAT; // laying takes it out of them — feed again
             break outer;
           }
         }
@@ -1864,10 +1993,15 @@ function update(dt) {
     if (e.hatch <= 0) {
       eggs.splice(i, 1);
       if (fishes.length < CAP) {
-        const baby = makeFish(e.species);
-        baby.x = e.x; baby.y = Math.min(e.y, SAND_Y - 12); baby.pal = e.pal;
-        if (e.palIdx != null) baby.palIdx = e.palIdx;
-        if (e.species === "crab" || e.species === "starfish") baby.y = SAND_Y - 4;
+        // graded eggs roll their species only now, at the moment of hatching
+        const species = e.grade != null ? rollEggSpecies(e.grade) : e.species;
+        const baby = makeFish(species);
+        if (e.grade == null) {
+          baby.pal = e.pal;
+          if (e.palIdx != null) baby.palIdx = e.palIdx;
+        }
+        baby.x = e.x; baby.y = Math.min(e.y, SAND_Y - 12);
+        if (species === "crab" || species === "starfish") baby.y = SAND_Y - 4;
         addFish(baby);
         for (let k = 0; k < 4; k++) bubbles.push({ x: e.x + rnd(-2, 2), y: e.y, r: 1, ph: rnd(0, 6) });
       }
@@ -2031,7 +2165,7 @@ function update(dt) {
       }
       // probabilistic interest: hungry fish react sooner, and a flake
       // only gets chased by the 1-2 fish that claimed it first
-      if (!raid && !f.food && f.foodCd <= 0 && Math.random() < 0.004 * (f.ate < LOVE_AT ? 1 : 0.4) * dt) {
+      if (!raid && !f.food && f.foodCd <= 0 && Math.random() < 0.004 * (0.3 + 0.7 * (1 - f.sat / 100)) * dt) {
         let bd = 70, pick = null;
         for (const fl of flakes) {
           if (fl.grounded || fl.claims >= fl.maxClaims) continue;
@@ -2061,7 +2195,7 @@ function update(dt) {
     // burst-and-glide: tail-beat kicks accelerate the fish, then it coasts
     f.burstT -= dt;
     if (f.burstT <= 0) {
-      f.burstT = (excited ? rnd(300, 800) : rnd(1000, 3000)) * (f.species === "whale" ? 2 : 1);
+      f.burstT = (excited ? rnd(300, 800) : rnd(1000, 3000)) * (f.species === "whale" || f.species === "beluga" ? 2 : 1);
       f.thrust = rnd(1.3, 2.1);
     }
     f.thrust = Math.max(0.3, f.thrust - 0.0006 * dt);
@@ -2111,6 +2245,8 @@ function update(dt) {
     if (rg.life <= 0) rings.splice(i, 1);
   }
 
+  // satiety slowly wears off — no penalty at zero, the fish just isn't breed-ready
+  for (const f of fishes) f.sat = Math.max(0, f.sat - dt / 6000);
   // hearts drift up and fade
   for (let i = hearts.length - 1; i >= 0; i--) {
     const h = hearts[i];
@@ -2118,9 +2254,9 @@ function update(dt) {
     h.life -= dt;
     if (h.life <= 0) hearts.splice(i, 1);
   }
-  // a loved fish occasionally shows affection on its own
+  // a well-fed fish occasionally shows affection on its own (also signals breed-ready)
   if (Math.random() < 0.0002 * dt) {
-    const loved = fishes.filter(f => f.ate >= LOVE_AT);
+    const loved = fishes.filter(f => f.sat >= BREED_SAT);
     if (loved.length) {
       const f = loved[ri(0, loved.length - 1)];
       hearts.push({ x: f.x, y: f.y - 5, life: 1100 });
@@ -2181,10 +2317,20 @@ function render() {
     drawSprite(MANTIS_SPRITE, CHEST.x + 6 + MANTIS.dir * 4, CHEST.y - 5, MANTIS.dir, MANTIS_PAL, {});
   }
   for (const e of eggs) {
-    px(e.x, e.y, "#ffe9c9"); px(e.x + 1, e.y, "#ffe9c9");
-    px(e.x, e.y + 1, "#d9b98a"); px(e.x + 1, e.y + 1, "#d9b98a");
+    const [hi, lo] = e.grade === 2 ? ["#ffe89a", "#c79a1e"]
+      : e.grade === 1 ? ["#bfe3ff", "#5f8fd4"]
+      : ["#ffe9c9", "#d9b98a"];
+    px(e.x, e.y, hi); px(e.x + 1, e.y, hi);
+    px(e.x, e.y + 1, lo); px(e.x + 1, e.y + 1, lo);
+    // legendary eggs sparkle
+    if (e.grade === 2 && Math.floor(t * 0.004) % 3 === 0) {
+      px(e.x + rnd(-3, 4), e.y + rnd(-3, 3), "#fff6c9");
+    }
   }
-  for (const fl of flakes) px(fl.x, fl.y, Math.floor(t * 0.002 + fl.x) % 2 ? "#ffd27a" : "#e8a94e");
+  for (const fl of flakes) {
+    const col = FEED_DEF[fl.tier || 0].col;
+    px(fl.x, fl.y, Math.floor(t * 0.002 + fl.x) % 2 ? col[1] : col[0]);
+  }
   drawCoins();
   for (const f of fishes) drawFish(f);
   drawShark();
@@ -2241,6 +2387,7 @@ document.getElementById("wallet").prepend(coinImg(15));
 renderGold();
 renderShop();
 renderDex();
+renderFeedBar();
 if (save.frame && (save.frames.includes(save.frame) || save.frame === "")) applyFrame(save.frame);
 // restore the saved tank; fall back to a fresh one
 let restored = false;
@@ -2253,6 +2400,8 @@ if (Array.isArray(save.fish) && save.fish.length) {
     if (sf.n) f.name = sf.n;
     if (sf.c) f.customName = sf.c;
     f.ate = sf.a || 0;
+    f.sat = Math.max(0, Math.min(100, sf.st || 0));
+    f.dietTier = FEED_DEF[sf.dt] ? sf.dt : 0;
     if (typeof sf.x === "number") f.x = Math.max(4, Math.min(W - 4, sf.x));
     if (typeof sf.y === "number" && !SAND_DWELLERS.includes(sf.s)) {
       f.y = Math.max(10, Math.min(SAND_Y - 8, sf.y));
@@ -2262,15 +2411,18 @@ if (Array.isArray(save.fish) && save.fish.length) {
   }
   for (const se of save.eggs || []) {
     if (fishes.length + eggs.length >= CAP) break;
+    const x = typeof se.x === "number" ? se.x : rnd(40, 140);
+    const y = typeof se.y === "number" ? se.y : 8;
+    const hatch = Math.max(3000, se.h || 15000);
+    if (se.g != null && se.g >= 0 && EGG_POOLS[se.g]) {
+      dropGradeEgg(se.g, x, y, hatch);
+      continue;
+    }
+    // legacy species-fixed egg from an old save
     const def = SPECIES_DEF.find(d => d.key === se.s);
     if (!def) continue;
     const pal = se.p >= 0 && FISH_PALETTES[se.p] ? FISH_PALETTES[se.p] : (def.pal || FISH_PALETTES[0]);
-    eggs.push({
-      x: typeof se.x === "number" ? se.x : rnd(40, 140),
-      y: typeof se.y === "number" ? se.y : 8,
-      hatch: Math.max(3000, se.h || 15000),
-      species: se.s, pal, palIdx: se.p,
-    });
+    eggs.push({ x, y, hatch, species: se.s, pal, palIdx: se.p });
   }
 }
 if (!restored) {
