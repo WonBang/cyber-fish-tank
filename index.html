@@ -2142,7 +2142,7 @@ function update(dt) {
       if (f.food) {
         f.dir = f.food.x > f.x ? 1 : -1;
         f.targetY = f.food.y;
-        if (Math.abs(f.food.x - f.x) < 5 && Math.abs(f.food.y - f.y) < 8) eat(f, f.food);
+        if (Math.abs(f.food.x - f.x) < 9 && Math.abs(f.food.y - f.y) < 11) eat(f, f.food);
         // failsafe: a chase that drags on means the flake is unreachable — give it up
         else if ((f.chaseT = (f.chaseT || 0) + dt) > 6000) {
           dropFood(f);
