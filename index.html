@@ -730,7 +730,11 @@ function discover(species, palIdx) {
   const idx = palIdx == null ? -1 : palIdx;
   if (list.includes(idx)) return;
   list.push(idx);
-  if (isNewSpecies) { addGold(30); toast(`도감 등록: ${KOR[species]} +30🪙`); }
+  if (isNewSpecies) {
+    const bonus = DEX_BONUS[species] || 30;
+    addGold(bonus);
+    toast(`도감 등록: ${KOR[species]} +${bonus}🪙`);
+  }
   else if (VARIED.includes(species)) { addGold(5); toast(`새 색상 발견: ${KOR[species]} +5🪙`); }
   persist();
   renderDex();
@@ -741,8 +745,8 @@ function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
 const FEED_DEF = [
   // daily > 0 → that many free claims per local calendar day, then paid at price
   { key: "basic",  label: "일반 사료", price: 20,  daily: 20, pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
-  { key: "prime",  label: "고급 사료", price: 120, daily: 10, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
-  { key: "golden", label: "황금 사료", price: 400, daily: 0,  pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
+  { key: "prime",  label: "고급 사료", price: 100, daily: 10, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
+  { key: "golden", label: "황금 사료", price: 300, daily: 0,  pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
 ];
 function todayStr() { return new Date().toLocaleDateString("en-CA"); }
 function rationLeft(item) {
@@ -754,8 +758,8 @@ const BREED_SAT = 60;
 // rarer fish just take a bigger share as the grade goes up
 const EGG_SHOP = [
   { grade: 0, label: "일반 알", price: 100 },
-  { grade: 1, label: "고급 알", price: 400 },
-  { grade: 2, label: "전설 알", price: 1200 },
+  { grade: 1, label: "고급 알", price: 300 },
+  { grade: 2, label: "전설 알", price: 900 },
 ];
 const EGG_POOLS = [
   [ ["tetra", 30], ["guppy", 30], ["clown", 16], ["angel", 12], ["starfish", 6], ["seahorse", 6] ],
@@ -786,8 +790,13 @@ function rollEggSpecies(grade) {
 }
 const SELL_PRICE = {
   tetra: 40, guppy: 40, clown: 55, angel: 60, starfish: 60, seahorse: 70,
-  crab: 80, puffer: 100, jelly: 100, sword: 140, whale: 250, golden: 500,
-  beluga: 1000,
+  crab: 90, puffer: 110, jelly: 110, sword: 160, whale: 320, golden: 800,
+  beluga: 2000,
+};
+// first-discovery dex bounty, scaled by rarity (default 30 for commons)
+const DEX_BONUS = {
+  crab: 60, puffer: 60, jelly: 60, sword: 60, whale: 60,
+  golden: 200, beluga: 500,
 };
 const FRAME_SHOP = [
   { key: "", label: "기본 프레임", price: 0 },
@@ -1116,7 +1125,7 @@ function raidWin() {
   }
   // one bounty egg drifts down — 35% legendary
   dropGradeEgg(Math.random() < 0.35 ? 2 : 0, rnd(40, 150), 26, rnd(20000, 32000));
-  addGold(30); // raid victory bounty
+  addGold(50); // raid victory bounty
   // the whole tank celebrates
   for (const f of fishes) {
     hearts.push({ x: f.x, y: f.y - 5, life: rnd(900, 1600) });
@@ -2096,10 +2105,11 @@ function update(dt) {
       dropFood(f);
     } else {
       if (f.foodCd > 0) f.foodCd -= dt;
-      // lost interest: flake gone, or it landed (bottom crumbs are the crab's job)
-      if (f.food && (f.food.life <= 0 || f.food.grounded)) {
+      // lost interest only when the flake is truly gone — a claimed chaser
+      // follows its flake all the way to the sand (unclaimed crumbs stay the crab's job)
+      if (f.food && f.food.life <= 0) {
         dropFood(f);
-        f.foodCd = rnd(1500, 3000);
+        f.foodCd = rnd(400, 1000);
       }
       // probabilistic interest: hungry fish react sooner, and a flake
       // only gets chased by the 1-2 fish that claimed it first
@@ -2107,15 +2117,28 @@ function update(dt) {
         let bd = 70, pick = null;
         for (const fl of flakes) {
           if (fl.grounded || fl.claims >= fl.maxClaims) continue;
+          if (fl.x < JAIL.right + 5) continue; // jail meals belong to the inmates — the wall blocks outsiders
           const d = Math.hypot(fl.x - f.x, fl.y - f.y);
           if (d < bd) { bd = d; pick = fl; }
         }
-        if (pick) { f.food = pick; pick.claims++; }
+        if (pick) {
+          f.food = pick;
+          pick.claims++;
+          f.chaseT = 0;
+          // lunge: instant burst of speed toward the sinking flake
+          f.thrust = 2.6;
+          f.burstT = rnd(250, 450);
+        }
       }
       if (f.food) {
         f.dir = f.food.x > f.x ? 1 : -1;
         f.targetY = f.food.y;
         if (Math.abs(f.food.x - f.x) < 5 && Math.abs(f.food.y - f.y) < 8) eat(f, f.food);
+        // failsafe: a chase that drags on means the flake is unreachable — give it up
+        else if ((f.chaseT = (f.chaseT || 0) + dt) > 6000) {
+          dropFood(f);
+          f.foodCd = rnd(400, 1000);
+        }
       } else if (f.retarget <= 0) {
         f.retarget = rnd(2000, 6000);
         f.targetY = rnd(14, SAND_Y - 26);
@@ -2123,7 +2146,7 @@ function update(dt) {
       }
     }
 
-    let sp = f.food ? f.speed * 1.9 : f.speed;
+    let sp = f.food ? f.speed * 2.4 : f.speed;
     const inCombat = raid && raid.phase === "fight";
     const excited = f.food || inCombat || (threat && Math.abs(threat.x - f.x) < fleeR);
     if (threat && Math.abs(threat.x - f.x) < fleeR) sp = f.speed * 2.6;
@@ -2139,7 +2162,8 @@ function update(dt) {
     f.thrust = Math.max(0.3, f.thrust - 0.0006 * dt);
     f.vx += (f.dir * sp * f.thrust - f.vx) * 0.04 * dt * 0.06;
     f.x += f.vx * dt * 0.06;
-    f.y += ((f.targetY - f.y) * 0.0009 + Math.sin(t * 0.004 + f.phase) * 0.004) * dt * 0.6;
+    // chasing fish dive much harder so they can keep up with sinking flakes
+    f.y += ((f.targetY - f.y) * (f.food ? 0.009 : 0.0009) + Math.sin(t * 0.004 + f.phase) * 0.004) * dt * 0.6;
     if (f.x < 12) { f.x = 12; f.dir = 1; }
     if (f.x > W - 12) { f.x = W - 12; f.dir = -1; }
     f.y = Math.max(10, Math.min(SAND_Y - 8, f.y));
