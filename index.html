@@ -95,6 +95,14 @@
     cursor: pointer;
   }
   .odds button:hover { color: #cfe3f5; }
+  .oddsgrid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto;
+    column-gap: 8px;
+    padding-top: 2px;
+  }
+  .oddsgrid .pc { text-align: right; color: #a8c8e8; }
+  .oddsgrid.hidden { display: none; }
   .feedbar { display: flex; gap: 4px; }
   .feedbar button {
     flex: 1;
@@ -624,15 +632,15 @@ function log() {}
 // ---------- economy / shop / dex ----------
 const CAP = 30; // tank capacity (fish + pending eggs)
 const SAVE_KEY = "cyber-fish-tank-save";
-let save = { gold: 0, frames: [], frame: "", decos: [], dex: {}, feed: { basic: 30, prime: 0, golden: 0 } };
+let save = { gold: 0, frames: [], frame: "", dex: {}, feed: { basic: 30, prime: 0, golden: 0 }, ration: { date: "", basic: 0, prime: 0 } };
 try {
   const s = JSON.parse(localStorage.getItem(SAVE_KEY));
   if (s && typeof s === "object") save = Object.assign(save, s);
 } catch (e) {}
-if (!Array.isArray(save.decos)) save.decos = [];
 if (!Array.isArray(save.frames)) save.frames = [];
 if (typeof save.dex !== "object" || !save.dex) save.dex = {};
 if (typeof save.feed !== "object" || !save.feed) save.feed = { basic: 30, prime: 0, golden: 0 };
+if (typeof save.ration !== "object" || !save.ration) save.ration = { date: "", basic: 0, prime: 0 };
 let saveT = 0;
 function snapshotTank() {
   save.fish = fishes.map(f => ({
@@ -731,10 +739,16 @@ function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
 
 // feed tiers: pure buff — no starvation penalty, satiety just gates breeding
 const FEED_DEF = [
-  { key: "basic",  label: "일반 사료", price: 20,  pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
-  { key: "prime",  label: "고급 사료", price: 120, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
-  { key: "golden", label: "황금 사료", price: 400, pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
+  // daily > 0 → free ration, that many claims per local calendar day; 0 → paid, unlimited
+  { key: "basic",  label: "일반 사료", price: 0,   daily: 20, pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
+  { key: "prime",  label: "고급 사료", price: 0,   daily: 10, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
+  { key: "golden", label: "황금 사료", price: 400, daily: 0,  pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
 ];
+function todayStr() { return new Date().toLocaleDateString("en-CA"); }
+function rationLeft(item) {
+  if (save.ration.date !== todayStr()) { save.ration = { date: todayStr(), basic: 0, prime: 0 }; }
+  return item.daily - (save.ration[item.key] || 0);
+}
 const BREED_SAT = 60;
 // graded gacha eggs: each tier's pool is a superset of the tier below —
 // rarer fish just take a bigger share as the grade goes up
@@ -775,12 +789,6 @@ const SELL_PRICE = {
   crab: 80, puffer: 100, jelly: 100, sword: 140, whale: 250, golden: 500,
   beluga: 1000,
 };
-const DECO_SHOP = [
-  { key: "moai", label: "모아이 석상", price: 250 },
-  { key: "neon", label: "네온 사인", price: 350 },
-  { key: "castle", label: "성", price: 400 },
-  { key: "ship", label: "난파선", price: 500 },
-];
 const FRAME_SHOP = [
   { key: "", label: "기본 프레임", price: 0 },
   { key: "wood", label: "원목 프레임", price: 300 },
@@ -802,12 +810,20 @@ function buyEgg(item) {
 }
 
 function buyFeed(item) {
-  if (save.gold < item.price) { toast("골드 부족"); return; }
-  addGold(-item.price);
+  if (item.daily > 0) {
+    // free daily ration, capped per local calendar day
+    if (rationLeft(item) <= 0) { toast("오늘 배급은 끝났어요 — 내일 00시에 초기화"); return; }
+    save.ration[item.key] = (save.ration[item.key] || 0) + 1;
+    toast(`${item.label} ×${item.pack} 수령 (오늘 ${rationLeft(item)}회 남음)`);
+  } else {
+    if (save.gold < item.price) { toast("골드 부족"); return; }
+    addGold(-item.price);
+    toast(`${item.label} ×${item.pack} 구매`);
+  }
   save.feed[item.key] = (save.feed[item.key] || 0) + item.pack;
   persist();
   renderFeedBar();
-  toast(`${item.label} ×${item.pack} 구매`);
+  renderShop();
 }
 
 // per-grade drop rates, derived from the same EGG_POOLS the gacha rolls
@@ -819,10 +835,15 @@ function eggOddsRow(grade) {
   d.className = "odds";
   const b = document.createElement("button");
   const txt = document.createElement("div");
-  txt.textContent = "확률: " + [...pool]
-    .sort((a, b) => b[1] - a[1])
-    .map(([key, w]) => `${KOR[key]} ${(w / total * 100).toFixed(1)}%`)
-    .join(" · ");
+  txt.className = "oddsgrid";
+  for (const [key, w] of [...pool].sort((a, b) => b[1] - a[1])) {
+    const nm = document.createElement("span");
+    nm.textContent = KOR[key];
+    const pc = document.createElement("span");
+    pc.className = "pc";
+    pc.textContent = (w / total * 100).toFixed(1) + "%";
+    txt.append(nm, pc);
+  }
   const sync = () => {
     b.textContent = oddsOpen[grade] ? "확률 접기 ▲" : "확률 보기 ▼";
     txt.classList.toggle("hidden", !oddsOpen[grade]);
@@ -831,15 +852,6 @@ function eggOddsRow(grade) {
   sync();
   d.append(b, txt);
   return d;
-}
-
-function buyDeco(item) {
-  if (save.decos.length >= 6) { toast("장식물은 최대 6개"); return; }
-  if (save.gold < item.price) { toast("골드 부족"); return; }
-  addGold(-item.price);
-  save.decos.push({ type: item.key, x: ri(45, 130) });
-  persist();
-  toast(`${item.label} 설치 — 드래그로 옮길 수 있어요`);
 }
 
 function applyFrame(key) {
@@ -879,16 +891,19 @@ function renderShop() {
   };
   sect("🍞 먹이");
   for (const it of FEED_DEF) {
-    shopBody.appendChild(shopRow(`${it.label} ×${it.pack}`, it.price, "구매", () => buyFeed(it)));
+    if (it.daily > 0) {
+      const left = rationLeft(it);
+      shopBody.appendChild(shopRow(
+        `${it.label} ×${it.pack} (${left}/${it.daily})`, null,
+        left > 0 ? "받기" : "내일", () => buyFeed(it), left <= 0));
+    } else {
+      shopBody.appendChild(shopRow(`${it.label} ×${it.pack}`, it.price, "구매", () => buyFeed(it)));
+    }
   }
   sect("🥚 물고기 알");
   for (const it of EGG_SHOP) {
     shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyEgg(it)));
     shopBody.appendChild(eggOddsRow(it.grade));
-  }
-  sect("🪸 장식물");
-  for (const it of DECO_SHOP) {
-    shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyDeco(it)));
   }
   sect("🖼️ 어항 테두리");
   for (const it of FRAME_SHOP) {
@@ -992,93 +1007,6 @@ function switchTab(shop) {
 }
 tabShop.addEventListener("click", () => switchTab(true));
 tabDex.addEventListener("click", () => switchTab(false));
-
-// ---------- decorations ----------
-const DECO_SPRITES = {
-  moai: {
-    pal: { b: "#8a97ab", d: "#55627a" },
-    rows: [
-      ".bbbbb.",
-      ".bbbbb.",
-      "bdbbbdb",
-      "bbdbdbb",
-      "bbbdbbb",
-      "bbbdbbb",
-      "bbdddbb",
-      "bbbbbbb",
-      ".bbbbb.",
-      ".dbbbd.",
-      "ddddddd",
-    ],
-  },
-  castle: {
-    pal: { b: "#7d8aa0", d: "#55627a", e: "#141c2c" },
-    rows: [
-      "b.b.......b.b",
-      "bbb.......bbb",
-      "bdb.......bdb",
-      "bbb.b.b.b.bbb",
-      "bbbbbbbbbbbbb",
-      "bbdbbbbbbbdbb",
-      "bbbbbeeebbbbb",
-      "bbdbbeeebbdbb",
-      "bbbbbeeebbbbb",
-      "ddddddddddddd",
-    ],
-  },
-  ship: {
-    pal: { b: "#6b4a2a", d: "#4a3018", w: "#c9d4e4" },
-    rows: [
-      ".........d.......",
-      "...wwwwwwd.......",
-      "....wwwwwd.......",
-      ".....wwwwd.......",
-      ".........d.......",
-      "b...............b",
-      "bbbbbbbbbbbbbbbbb",
-      ".bbdbbbdbbbdbbb.",
-      "..bbbbbbbbbbbb..",
-    ],
-  },
-  neon: {
-    pal: { f: "#46d8ff", e: "#e8f2fa", d: "#3a4556" },
-    rows: [
-      "ooooooooooooo",
-      "o...........o",
-      "o..f..fff...o",
-      "o.fffffffe..o",
-      "o..f..fff...o",
-      "o...........o",
-      "ooooooooooooo",
-      "......d......",
-      "......d......",
-    ],
-  },
-};
-
-function drawDecos() {
-  for (const d of save.decos) {
-    const sp = DECO_SPRITES[d.type];
-    if (!sp) continue;
-    const rows = sp.rows, h = rows.length, w = rows[0].length;
-    const ox = Math.round(d.x - w / 2), oy = SAND_Y - h;
-    const blink = Math.floor(t * 0.004) % 2;
-    for (let r = 0; r < h; r++) {
-      for (let c = 0; c < rows[r].length; c++) {
-        const ch = rows[r][c];
-        if (ch === ".") continue;
-        let col = ch === "o" ? (blink ? "#ff6b9d" : "#46d8ff") : sp.pal[ch];
-        if (col) px(ox + c, oy + r, col);
-      }
-    }
-    if (d.type === "neon") {
-      cx.globalAlpha = 0.1 + (blink ? 0.06 : 0);
-      cx.fillStyle = blink ? "#ff6b9d" : "#46d8ff";
-      cx.fillRect(ox - 1, oy - 1, w + 2, h - 3);
-      cx.globalAlpha = 1;
-    }
-  }
-}
 
 // ---------- actions ----------
 function renderFeedBar() {
@@ -1401,7 +1329,7 @@ function imprison(f) {
   return true;
 }
 
-let dragFish = null, dragDeco = null, dragMoved = 0, suppressClick = false;
+let dragFish = null, dragMoved = 0, suppressClick = false;
 cv.addEventListener("mousedown", (e) => {
   const { mx, my } = toLogical(e);
   let best = null, bd = 8;
@@ -1416,27 +1344,9 @@ cv.addEventListener("mousedown", (e) => {
     best.knock = 0;
     dragMoved = 0;
     dropFood(best);
-    return;
-  }
-  // no fish grabbed: maybe a decoration
-  for (const d of save.decos) {
-    const sp = DECO_SPRITES[d.type];
-    if (!sp) continue;
-    const w2 = sp.rows[0].length / 2, h = sp.rows.length;
-    if (Math.abs(mx - d.x) < w2 + 2 && my > SAND_Y - h - 3 && my < SAND_Y + 4) {
-      dragDeco = d;
-      dragMoved = 0;
-      break;
-    }
   }
 });
 cv.addEventListener("mousemove", (e) => {
-  if (dragDeco) {
-    const { mx } = toLogical(e);
-    dragMoved += Math.abs(mx - dragDeco.x);
-    dragDeco.x = Math.max(JAIL.right + 8, Math.min(W - 8, mx));
-    return;
-  }
   if (!dragFish) return;
   const { mx, my } = toLogical(e);
   dragMoved += Math.abs(mx - dragFish.x) + Math.abs(my - dragFish.y);
@@ -1444,12 +1354,6 @@ cv.addEventListener("mousemove", (e) => {
   dragFish.y = Math.max(6, Math.min(SAND_Y - 3, my));
 });
 function endDrag(e) {
-  if (dragDeco) {
-    if (dragMoved > 3) suppressClick = true;
-    dragDeco = null;
-    persist();
-    return;
-  }
   if (!dragFish) return;
   const f = dragFish;
   dragFish = null;
@@ -1684,6 +1588,42 @@ function drawSprite(rows, cxr, cyr, dir, pal, opts) {
     }
   }
   return { ox, oy, w, h };
+}
+
+// classic oval egg: highlight top-left, shaded bottom-right, grade-tinted
+const EGG_ROWS = [
+  ".bbb.",
+  "bhhbb",
+  "bhbbb",
+  "bbbbd",
+  "bbbdd",
+  ".bdd.",
+];
+const EGG_PALS = [
+  { b: "#fff3dd", h: "#fffdf4", d: "#d9b98a" }, // common (and legacy species-fixed eggs)
+  { b: "#9fd0f5", h: "#d8eeff", d: "#5f8fd4" }, // premium
+  { b: "#ffe17a", h: "#fff6c9", d: "#c79a1e" }, // legendary
+];
+function drawEgg(e) {
+  const pal = EGG_PALS[e.grade] || EGG_PALS[0];
+  // hatching soon: rock side to side, then a crack appears
+  const wobble = e.hatch < 4000 ? Math.round(Math.sin(t * 0.03)) : 0;
+  const ox = Math.round(e.x) - 2 + wobble;
+  const oy = Math.round(e.y) + 2 - EGG_ROWS.length + 1; // bottom rests where the 2x2 egg used to
+  for (let r = 0; r < EGG_ROWS.length; r++) {
+    for (let c = 0; c < 5; c++) {
+      const ch = EGG_ROWS[r][c];
+      if (ch !== ".") px(ox + c, oy + r, pal[ch]);
+    }
+  }
+  if (e.hatch < 2500) {
+    const crack = "#7a6242";
+    px(ox + 1, oy + 3, crack); px(ox + 2, oy + 2, crack); px(ox + 3, oy + 3, crack);
+  }
+  // legendary eggs sparkle
+  if (e.grade === 2 && Math.floor(t * 0.004) % 3 === 0) {
+    px(e.x + rnd(-3, 4), e.y + rnd(-3, 3), "#fff6c9");
+  }
 }
 
 function drawFish(f) {
@@ -2310,23 +2250,12 @@ function render() {
   for (const p of plants) if (!p.front) drawPlant(p);
   drawRocks();
   drawSand();
-  drawDecos();
   drawJailBack();
   drawChest();
   if (MANTIS.show > 0) {
     drawSprite(MANTIS_SPRITE, CHEST.x + 6 + MANTIS.dir * 4, CHEST.y - 5, MANTIS.dir, MANTIS_PAL, {});
   }
-  for (const e of eggs) {
-    const [hi, lo] = e.grade === 2 ? ["#ffe89a", "#c79a1e"]
-      : e.grade === 1 ? ["#bfe3ff", "#5f8fd4"]
-      : ["#ffe9c9", "#d9b98a"];
-    px(e.x, e.y, hi); px(e.x + 1, e.y, hi);
-    px(e.x, e.y + 1, lo); px(e.x + 1, e.y + 1, lo);
-    // legendary eggs sparkle
-    if (e.grade === 2 && Math.floor(t * 0.004) % 3 === 0) {
-      px(e.x + rnd(-3, 4), e.y + rnd(-3, 3), "#fff6c9");
-    }
-  }
+  for (const e of eggs) drawEgg(e);
   for (const fl of flakes) {
     const col = FEED_DEF[fl.tier || 0].col;
     px(fl.x, fl.y, Math.floor(t * 0.002 + fl.x) % 2 ? col[1] : col[0]);
@@ -2388,6 +2317,11 @@ renderGold();
 renderShop();
 renderDex();
 renderFeedBar();
+// reopen daily rations if the tank is left running past local midnight
+let shopDate = todayStr();
+setInterval(() => {
+  if (todayStr() !== shopDate) { shopDate = todayStr(); renderShop(); }
+}, 60000);
 if (save.frame && (save.frames.includes(save.frame) || save.frame === "")) applyFrame(save.frame);
 // restore the saved tank; fall back to a fresh one
 let restored = false;
