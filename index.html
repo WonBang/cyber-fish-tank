@@ -739,9 +739,9 @@ function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
 
 // feed tiers: pure buff — no starvation penalty, satiety just gates breeding
 const FEED_DEF = [
-  // daily > 0 → free ration, that many claims per local calendar day; 0 → paid, unlimited
-  { key: "basic",  label: "일반 사료", price: 0,   daily: 20, pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
-  { key: "prime",  label: "고급 사료", price: 0,   daily: 10, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
+  // daily > 0 → that many free claims per local calendar day, then paid at price
+  { key: "basic",  label: "일반 사료", price: 20,  daily: 20, pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
+  { key: "prime",  label: "고급 사료", price: 120, daily: 10, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
   { key: "golden", label: "황금 사료", price: 400, daily: 0,  pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
 ];
 function todayStr() { return new Date().toLocaleDateString("en-CA"); }
@@ -810,9 +810,8 @@ function buyEgg(item) {
 }
 
 function buyFeed(item) {
-  if (item.daily > 0) {
-    // free daily ration, capped per local calendar day
-    if (rationLeft(item) <= 0) { toast("오늘 배급은 끝났어요 — 내일 00시에 초기화"); return; }
+  if (item.daily > 0 && rationLeft(item) > 0) {
+    // free daily ration, capped per local calendar day — paid once it runs out
     save.ration[item.key] = (save.ration[item.key] || 0) + 1;
     toast(`${item.label} ×${item.pack} 수령 (오늘 ${rationLeft(item)}회 남음)`);
   } else {
@@ -891,11 +890,10 @@ function renderShop() {
   };
   sect("🍞 먹이");
   for (const it of FEED_DEF) {
-    if (it.daily > 0) {
-      const left = rationLeft(it);
+    const left = it.daily > 0 ? rationLeft(it) : 0;
+    if (left > 0) {
       shopBody.appendChild(shopRow(
-        `${it.label} ×${it.pack} (${left}/${it.daily})`, null,
-        left > 0 ? "받기" : "내일", () => buyFeed(it), left <= 0));
+        `${it.label} ×${it.pack} (무료 ${left}/${it.daily})`, null, "받기", () => buyFeed(it)));
     } else {
       shopBody.appendChild(shopRow(`${it.label} ×${it.pack}`, it.price, "구매", () => buyFeed(it)));
     }
