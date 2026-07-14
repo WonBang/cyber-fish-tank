@@ -1794,6 +1794,27 @@ function dropFood(f) {
   f.food = null;
 }
 
+// pick the nearest unclaimed flake within range (grounded ones included —
+// a fish beats the crab to fresh crumbs; anything left still fades or feeds ferris)
+function claimFlake(f, range) {
+  let bd = range, pick = null;
+  for (const fl of flakes) {
+    if (fl.life <= 0 || fl.claims >= fl.maxClaims) continue;
+    if (fl.x < JAIL.right + 5) continue; // jail meals belong to the inmates — the wall blocks outsiders
+    const d = Math.hypot(fl.x - f.x, fl.y - f.y);
+    if (d < bd) { bd = d; pick = fl; }
+  }
+  if (pick) {
+    f.food = pick;
+    pick.claims++;
+    f.chaseT = 0;
+    // lunge: instant burst of speed toward the flake
+    f.thrust = 2.6;
+    f.burstT = rnd(250, 450);
+  }
+  return pick;
+}
+
 function eat(f, fl) {
   fl.life = 0;
   f.ate++;
@@ -1804,6 +1825,8 @@ function eat(f, fl) {
   else log(`${f.name}[${f.pid}] ate flake · exit 0`, "ok");
   f.food = null;
   f.retarget = 0;
+  // still more food in the water? chain straight to the next bite
+  if (!f.jail && !SAND_DWELLERS.includes(f.species) && f.species !== "jelly") claimFlake(f, 90);
 }
 
 function update(dt) {
@@ -2113,22 +2136,8 @@ function update(dt) {
       }
       // probabilistic interest: hungry fish react sooner, and a flake
       // only gets chased by the 1-2 fish that claimed it first
-      if (!raid && !f.food && f.foodCd <= 0 && Math.random() < 0.004 * (0.3 + 0.7 * (1 - f.sat / 100)) * dt) {
-        let bd = 70, pick = null;
-        for (const fl of flakes) {
-          if (fl.grounded || fl.claims >= fl.maxClaims) continue;
-          if (fl.x < JAIL.right + 5) continue; // jail meals belong to the inmates — the wall blocks outsiders
-          const d = Math.hypot(fl.x - f.x, fl.y - f.y);
-          if (d < bd) { bd = d; pick = fl; }
-        }
-        if (pick) {
-          f.food = pick;
-          pick.claims++;
-          f.chaseT = 0;
-          // lunge: instant burst of speed toward the sinking flake
-          f.thrust = 2.6;
-          f.burstT = rnd(250, 450);
-        }
+      if (!raid && !f.food && f.foodCd <= 0 && Math.random() < 0.012 * (0.6 + 0.4 * (1 - f.sat / 100)) * dt) {
+        claimFlake(f, 90);
       }
       if (f.food) {
         f.dir = f.food.x > f.x ? 1 : -1;
@@ -2259,7 +2268,7 @@ function update(dt) {
       fl.y += fl.vy * dt * 0.06;
     } else if (!fl.grounded) {
       fl.grounded = true;
-      fl.life = Math.min(fl.life, 210); // landed crumbs fade in ~8s
+      fl.life = Math.min(fl.life, 700); // landed crumbs linger a while for stragglers and the crab
     }
     fl.x += Math.sin(t * 0.008 + fl.y) * 0.02 * dt * 0.06;
     if (fl.life <= 0) flakes.splice(i, 1);
