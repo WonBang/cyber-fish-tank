@@ -501,6 +501,8 @@ const SPECIES_DEF = [
 // ---------- world state ----------
 const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [], hearts = [], rings = [];
 const LOVE_AT = 3; // meals before a fish trusts you enough to be named
+const CROWN_AT = 10; // meals before a fish earns its crown (sells +50%, breeds better eggs)
+const isCrowned = (f) => f.ate >= CROWN_AT;
 let t = 0, spawnedPids = new Set();
 let shark = null, sharkTimer = rnd(45000, 90000);
 let night = false;
@@ -779,8 +781,15 @@ const BREED_EGG_ODDS = [
   [0.6, 0.4, 0],
   [0.4, 0.4, 0.2],
 ];
-function rollEggGrade(diet) {
-  const odds = BREED_EGG_ODDS[diet] || BREED_EGG_ODDS[0];
+function rollEggGrade(diet, crowns) {
+  const odds = (BREED_EGG_ODDS[diet] || BREED_EGG_ODDS[0]).slice();
+  // crowned parents tilt the roll toward the best grade their diet allows
+  // (+10%p per crown; the diet cap itself never moves)
+  let top = 0;
+  for (let g = 0; g < odds.length; g++) if (odds[g] > 0) top = g;
+  const tilt = Math.min(odds[0], 0.1 * (crowns || 0));
+  odds[0] -= tilt;
+  odds[top] += tilt;
   let roll = Math.random();
   for (let g = 0; g < odds.length; g++) { roll -= odds[g]; if (roll <= 0) return g; }
   return 0;
@@ -1051,7 +1060,8 @@ sellBtn.addEventListener("click", () => {
 
 function sellFish(f) {
   if (f.species !== "crab" && nonCrabCount() <= MIN_FISH) { toast("어항 최소 인원 — 더 팔 수 없어요"); return; }
-  const price = SELL_PRICE[f.species] || 40;
+  // crowned veterans fetch a premium — feeding them was an investment
+  const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
   dropFood(f);
   fishes.splice(fishes.indexOf(f), 1);
   addGold(price);
@@ -1714,7 +1724,7 @@ function drawFish(f) {
   else { rows = SPRITES[f.species]; }
   const box = drawSprite(rows, f.x, f.y, f.dir, f.pal, opts);
   // senior fish crown
-  if (f.ate >= 5) {
+  if (isCrowned(f)) {
     cx.fillStyle = "#ffd54a";
     const hx = Math.round(f.x) + (f.dir === 1 ? 2 : -2);
     cx.fillRect(hx - 1, box.oy - 2, 3, 1);
@@ -1889,7 +1899,10 @@ function eat(f, fl) {
   f.sat = Math.min(100, f.sat + FEED_DEF[fl.tier || 0].sat);
   f.dietTier = fl.tier || 0;
   if (f.ate >= LOVE_AT) hearts.push({ x: f.x, y: f.y - 5, life: 1100 });
-  if (f.ate === 5) log(`${f.name}[${f.pid}] promoted to senior fish 👑`, "ok");
+  if (f.ate === CROWN_AT) {
+    log(`${f.name}[${f.pid}] promoted to senior fish 👑`, "ok");
+    toast(`${f.customName || KOR[f.species]} 왕관 획득 👑 — 판매 +50%, 번식 강화`);
+  }
   else log(`${f.name}[${f.pid}] ate flake · exit 0`, "ok");
   f.food = null;
   f.retarget = 0;
@@ -2010,8 +2023,9 @@ function update(dt) {
           if (a.jail || b.jail || a.dragged || b.dragged) continue;
           if (a.sat < BREED_SAT || b.sat < BREED_SAT) continue; // both must be well fed
           if (Math.hypot(a.x - b.x, a.y - b.y) < 24) {
-            // diet of the lesser-fed parent caps the egg grade
-            const grade = rollEggGrade(Math.min(a.dietTier, b.dietTier));
+            // diet of the lesser-fed parent caps the egg grade; crowns tilt the odds up
+            const grade = rollEggGrade(Math.min(a.dietTier, b.dietTier),
+              (isCrowned(a) ? 1 : 0) + (isCrowned(b) ? 1 : 0));
             const n = ri(1, 2);
             for (let k = 0; k < n; k++) {
               dropGradeEgg(grade, (a.x + b.x) / 2 + rnd(-4, 4), (a.y + b.y) / 2, rnd(22000, 38000));
