@@ -103,6 +103,7 @@
   }
   .oddsgrid .pc { text-align: right; color: #a8c8e8; }
   .oddsgrid.hidden { display: none; }
+  .eggico { width: 10px !important; flex: none; cursor: default; image-rendering: pixelated; }
   .feedbar { display: flex; gap: 4px; }
   .feedbar button {
     flex: 1;
@@ -262,10 +263,12 @@
     <div class="tabs">
       <button id="tabShop" class="on">상점</button>
       <button id="tabDex">도감</button>
+      <button id="tabLog">기록</button>
     </div>
     <div class="feedbar" id="feedbar"></div>
     <div id="shopBody" class="tabbody"></div>
     <div id="dexBody" class="tabbody hidden"></div>
+    <div id="logBody" class="tabbody hidden"></div>
     <button id="sellBtn" class="btn">🏷️ 판매 모드</button>
     <div class="hint" id="hint"></div>
   </aside>
@@ -641,6 +644,7 @@ if (!Array.isArray(save.frames)) save.frames = [];
 if (typeof save.dex !== "object" || !save.dex) save.dex = {};
 if (typeof save.feed !== "object" || !save.feed) save.feed = { basic: 30, prime: 0, golden: 0 };
 if (typeof save.ration !== "object" || !save.ration) save.ration = { date: "", basic: 0, prime: 0 };
+if (!Array.isArray(save.hatchLog)) save.hatchLog = [];
 let saveT = 0;
 function snapshotTank() {
   save.fish = fishes.map(f => ({
@@ -980,6 +984,63 @@ function renderDex() {
   dexBody.appendChild(grid);
 }
 
+// ---------- hatch history ----------
+const GRADE_NAMES = ["일반 알", "고급 알", "전설 알"];
+function recordHatch(egg, species) {
+  const g = egg.grade == null ? -1 : egg.grade;
+  save.hatchLog.unshift({ g, s: species, ts: Date.now() });
+  if (save.hatchLog.length > 60) save.hatchLog.length = 60; // keep the last 60
+  persist();
+  toast(`${g >= 0 ? GRADE_NAMES[g] : "알"} 부화 → ${KOR[species]}!`);
+}
+
+function eggIcon(grade, size) {
+  const pal = EGG_PALS[grade] || EGG_PALS[0];
+  const c = document.createElement("canvas");
+  c.className = "eggico";
+  const s = size || 2;
+  c.width = 5 * s; c.height = EGG_ROWS.length * s;
+  const g = c.getContext("2d");
+  for (let r = 0; r < EGG_ROWS.length; r++) {
+    for (let col = 0; col < 5; col++) {
+      const ch = EGG_ROWS[r][col];
+      if (ch === ".") continue;
+      g.fillStyle = pal[ch];
+      g.fillRect(col * s, r * s, s, s);
+    }
+  }
+  return c;
+}
+
+function renderLog() {
+  logBody.innerHTML = "";
+  const s = document.createElement("div");
+  s.className = "sect";
+  s.textContent = `🐣 부화 기록 (최근 ${Math.min(save.hatchLog.length, 60)}건)`;
+  logBody.appendChild(s);
+  if (!save.hatchLog.length) {
+    const d = document.createElement("div");
+    d.className = "odds";
+    d.textContent = "아직 부화한 알이 없어요";
+    logBody.appendChild(d);
+    return;
+  }
+  for (const h of save.hatchLog) {
+    const row = document.createElement("div");
+    row.className = "item";
+    row.appendChild(eggIcon(h.g, 2));
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = `${h.g >= 0 ? GRADE_NAMES[h.g] : "알"} → ${KOR[h.s] || h.s}`;
+    const when = document.createElement("span");
+    when.className = "pr";
+    const d = new Date(h.ts);
+    when.textContent = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    row.append(nm, when);
+    logBody.appendChild(row);
+  }
+}
+
 // sell mode: click a fish to sell it
 let sellMode = false;
 sellBtn.addEventListener("click", () => {
@@ -1006,14 +1067,20 @@ function sellFish(f) {
 // panel tabs
 const tabShop = document.getElementById("tabShop");
 const tabDex = document.getElementById("tabDex");
-function switchTab(shop) {
-  tabShop.classList.toggle("on", shop);
-  tabDex.classList.toggle("on", !shop);
-  shopBody.classList.toggle("hidden", !shop);
-  dexBody.classList.toggle("hidden", shop);
+const tabLog = document.getElementById("tabLog");
+const logBody = document.getElementById("logBody");
+function switchTab(which) {
+  tabShop.classList.toggle("on", which === "shop");
+  tabDex.classList.toggle("on", which === "dex");
+  tabLog.classList.toggle("on", which === "log");
+  shopBody.classList.toggle("hidden", which !== "shop");
+  dexBody.classList.toggle("hidden", which !== "dex");
+  logBody.classList.toggle("hidden", which !== "log");
+  if (which === "log") renderLog();
 }
-tabShop.addEventListener("click", () => switchTab(true));
-tabDex.addEventListener("click", () => switchTab(false));
+tabShop.addEventListener("click", () => switchTab("shop"));
+tabDex.addEventListener("click", () => switchTab("dex"));
+tabLog.addEventListener("click", () => switchTab("log"));
 
 // ---------- actions ----------
 function renderFeedBar() {
@@ -1974,6 +2041,7 @@ function update(dt) {
         baby.x = e.x; baby.y = Math.min(e.y, SAND_Y - 12);
         if (species === "crab" || species === "starfish") baby.y = SAND_Y - 4;
         addFish(baby);
+        recordHatch(e, species);
         for (let k = 0; k < 4; k++) bubbles.push({ x: e.x + rnd(-2, 2), y: e.y, r: 1, ph: rnd(0, 6) });
       }
     }
