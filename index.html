@@ -104,7 +104,18 @@
   .oddsgrid .pc { text-align: right; color: #a8c8e8; }
   .oddsgrid.hidden { display: none; }
   .eggico { width: 10px !important; flex: none; cursor: default; image-rendering: pixelated; }
-  .feedbar { display: flex; gap: 4px; }
+  .feedbar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .feedbar button { white-space: nowrap; padding: 3px 4px; }
+  .feedbar .feedlab { color: #7fa3c8; font-size: 11px; letter-spacing: 0.08em; flex: none; }
+  .feedbar .fdot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    margin-right: 3px;
+    vertical-align: middle;
+  }
+  .feedbar .feedtip { width: 100%; color: #567a9e; font-size: 10px; margin-top: 1px; }
   .feedbar button {
     flex: 1;
     background: #0e1830;
@@ -1095,17 +1106,30 @@ tabLog.addEventListener("click", () => switchTab("log"));
 // ---------- actions ----------
 function renderFeedBar() {
   feedbarEl.innerHTML = "";
+  const lab = document.createElement("span");
+  lab.className = "feedlab";
+  lab.textContent = "🍞 먹이";
+  lab.title = "물을 클릭하면 선택한 사료를 뿌립니다";
+  feedbarEl.appendChild(lab);
   FEED_DEF.forEach((fd, i) => {
     const b = document.createElement("button");
     b.className = i === feedTier ? "on" : "";
-    b.append(fd.label.replace(" 사료", ""), " ");
+    b.title = `${fd.label} — 물 클릭으로 급여 (남은 ${save.feed[fd.key] || 0}알)`;
+    const dot = document.createElement("span");
+    dot.className = "fdot";
+    dot.style.background = fd.col[0];
+    b.append(dot, fd.label.replace(" 사료", ""), " ");
     const cnt = document.createElement("span");
     cnt.className = "cnt";
-    cnt.textContent = `×${save.feed[fd.key] || 0}`;
+    cnt.textContent = `${save.feed[fd.key] || 0}`;
     b.appendChild(cnt);
     b.addEventListener("click", () => { feedTier = i; renderFeedBar(); });
     feedbarEl.appendChild(b);
   });
+  const tip = document.createElement("div");
+  tip.className = "feedtip";
+  tip.textContent = "물을 클릭하면 선택한 먹이를 뿌려요";
+  feedbarEl.appendChild(tip);
 }
 
 function feed(px) {
