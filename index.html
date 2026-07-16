@@ -299,7 +299,7 @@
 (() => {
 "use strict";
 // deep-sea expansion: each purchased layer extends the tank downward
-const W = 192, BASE_H = 120, BASE_SAND = 108, LAYER_H = 30, MAX_DEPTH = 2;
+const W = 192, BASE_H = 120, BASE_SAND = 108, LAYER_H = 15, MAX_DEPTH = 2;
 let tankDepth = 0;
 try {
   const s0 = JSON.parse(localStorage.getItem("cyber-fish-tank-save"));
@@ -505,6 +505,63 @@ const SPRITES = {
     "ff.bbbbbbbbbbbb...",
     "f...f..bbbbbf.....",
   ],
+  hatchet: [
+    "....bb.b.",
+    "f.bbbbbb.",
+    "ffbbbbbeb",
+    "f.bbbbbb.",
+    "..bbbb...",
+    "...bb....",
+    "....b....",
+  ],
+  angler: [
+    "....c.....",
+    "....d.....",
+    "..bbbbb...",
+    ".bbbbbbeb.",
+    "fbbbbbbbbb",
+    ".bbwwwbb..",
+    "..bbbbb...",
+  ],
+  gulper: [
+    "f............bbb..",
+    "ff....bbbbbbbbbbb.",
+    "ffbbbbbbbbbbbbbbeb",
+    "ff....bbbbbbwwwww.",
+    "f............bbb..",
+  ],
+  oarfish: [
+    ".d.d.d.d.d.d.d.d.d.d..",
+    "f.bbbbbbbbbbbbbbbbbb..",
+    "ffbbbbbbbbbbbbbbbbbeb.",
+    "f.bbbbbbbbbbbbbbbbbb..",
+  ],
+  bluewhale: [
+    "f...........bbbbbbbbbb........",
+    "ff......bbbbbbbbbbbbbbbbbb....",
+    ".ff..bbbbbbbbbbbbbbbbbbbbbbb..",
+    ".ffbbbbbbbbbbbbbbbbbbbbbbbbeb.",
+    "ffbbbbbbbbbbbbbbbbbbbbbbbbbbb.",
+    ".fbbbbbbbbbbbbbbbbbbbbbbbbbbbd",
+    "..bbbbbbbbbbbbbbbbbbbbbbbbbb..",
+    "...bbbbbbbbbbbbbbbbbbbbbb.....",
+    "....dddddddddddddddddd........",
+    ".....d...d...d...d............",
+  ],
+  giantsquid: [
+    "....bbbb......",
+    "...bbbbbb.....",
+    "..bbbbbbbb....",
+    "..bbbbbbbb....",
+    "..bebbbbeb....",
+    "..bbbbbbbb....",
+    "..f.f..f.f....",
+    "..f.f..f.f....",
+    ".f..f..f..f...",
+    ".f..f..f..f...",
+    "f...f..f...f..",
+    "f...f..f...f..",
+  ],
   mola: [
     ".....dd.......",
     "...dbbbd......",
@@ -610,7 +667,16 @@ const SPECIES_DEF = [
   { key: "arowana", w: 1.5, name: "ryong",  pal: { b: "#d4823c", d: "#8a3a1e", f: "#ffb44a" } },
   { key: "coelacanth", w: 1, name: "fossil", pal: { b: "#5a6e8c", d: "#8ea2c0", f: "#43536e" } },
   { key: "mola",   w: 1,  name: "mola",     pal: { b: "#9aa8b8", d: "#5f6e80", f: "#7a8a9c" } },
+  // deep-sea dwellers: never spawn naturally (w 0), egg-only once their layer is open
+  { key: "bluewhale", w: 0, name: "bloo",   pal: { b: "#4a7ab8", d: "#2e4f80", f: "#6f9cd4" } },
+  { key: "hatchet", w: 0, name: "axel",     pal: { b: "#c8d8e8", d: "#8aa0b8", f: "#a8bcd0" } },
+  { key: "angler",  w: 0, name: "lumen",    pal: { b: "#3a4456", d: "#262e3e", f: "#2a3242" } },
+  { key: "gulper",  w: 0, name: "gulp",     pal: { b: "#2e3646", d: "#1e2430", f: "#3e4a5e" } },
+  { key: "oarfish", w: 0, name: "ribbon",   pal: { b: "#dde6f0", d: "#ff5c5c", f: "#ff8a8a" } },
+  { key: "giantsquid", w: 0, name: "inky",  pal: { b: "#c25a4a", d: "#8a3a2e", f: "#d98a70" } },
 ];
+// deep-sea species and the tank depth required to hatch (and house) them
+const DEEP_REQ = { hatchet: 1, angler: 1, gulper: 2, oarfish: 2, giantsquid: 2 };
 
 // ---------- world state ----------
 const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [], hearts = [], rings = [];
@@ -632,7 +698,7 @@ const JAIL = { x: 2, w: 25, top: SAND_Y - 30, h: 30, right: 27 };
 JAIL.slots = [null, null, null]; // one prisoner per treadmill level
 const MANTIS = { cool: 0, show: 0, dir: 1 };
 const SAND_DWELLERS = ["crab", "starfish"];
-const SLOW_GIANTS = ["whale", "beluga", "mola"]; // slow drifters, too big for the jail door
+const SLOW_GIANTS = ["whale", "beluga", "mola", "bluewhale", "giantsquid"]; // slow drifters, too big for the jail door
 
 function rnd(a, b) { return a + Math.random() * (b - a); }
 function ri(a, b) { return Math.floor(rnd(a, b + 1)); }
@@ -679,6 +745,7 @@ function makeFish(forceKey) {
   if (def.key === "starfish") { f.y = SAND_Y - 3; f.speed = rnd(0.008, 0.018); }
   if (def.key === "seahorse") { f.speed = rnd(0.03, 0.06); }
   if (def.key === "sword") { f.speed = rnd(0.45, 0.7); } // fastest fish in the tank
+  if (DEEP_REQ[def.key] && tankDepth > 0) { f.y = rnd(BASE_SAND + 4, SAND_Y - 6); } // born in the abyss
   return f;
 }
 
@@ -846,6 +913,8 @@ const KOR = {
   goldfish: "금붕어", zebra: "제브라다니오", molly: "몰리",
   betta: "베타", discus: "디스커스", bluetang: "블루탱",
   arowana: "아로와나", coelacanth: "실러캔스", mola: "개복치",
+  hatchet: "도끼고기", angler: "초롱아귀", gulper: "풍선장어", oarfish: "산갈치",
+  bluewhale: "흰수염고래", giantsquid: "대왕오징어",
 };
 const VARIED = ["tetra", "guppy", "angel", "seahorse"]; // species with random palettes
 
@@ -884,7 +953,8 @@ const BREED_SAT = 60;
 const EGG_SHOP = [
   { grade: 0, label: "일반 알", price: 100 },
   { grade: 1, label: "고급 알", price: 300 },
-  { grade: 2, label: "전설 알", price: 900 },
+  { grade: 2, label: "전설 알", price: 700 },
+  { grade: 3, label: "신화 알", price: 1500 },
 ];
 const EGG_POOLS = [
   [ ["tetra", 22], ["guppy", 22], ["clown", 12], ["angel", 10], ["goldfish", 10], ["zebra", 8],
@@ -892,13 +962,21 @@ const EGG_POOLS = [
   [ ["tetra", 9], ["guppy", 9], ["clown", 6], ["angel", 6], ["goldfish", 5], ["zebra", 4],
     ["molly", 3], ["starfish", 4], ["seahorse", 4],
     ["crab", 10], ["puffer", 8], ["jelly", 8], ["betta", 6], ["sword", 6], ["discus", 5],
-    ["bluetang", 4], ["whale", 3] ],
+    ["bluetang", 4], ["whale", 3], ["hatchet", 4], ["angler", 3] ],
   [ ["tetra", 7], ["guppy", 7], ["goldfish", 6], ["clown", 5], ["angel", 5], ["zebra", 5],
     ["molly", 4], ["starfish", 3], ["seahorse", 3],
     ["crab", 7], ["puffer", 6], ["jelly", 6], ["sword", 5], ["whale", 5], ["betta", 4],
     ["discus", 4], ["bluetang", 3],
-    ["golden", 6], ["arowana", 3.5], ["coelacanth", 2.5], ["mola", 2.5], ["beluga", 0.5] ],
+    ["hatchet", 3], ["angler", 3], ["gulper", 2.5], ["oarfish", 1.5],
+    ["golden", 6], ["arowana", 3.5], ["coelacanth", 2.5], ["mola", 2.5] ],
+  // mythic egg: legendary tier and above only — no commons, no mids
+  [ ["gulper", 20], ["mola", 18], ["arowana", 16], ["golden", 13], ["coelacanth", 11], ["oarfish", 8],
+    ["giantsquid", 6], ["bluewhale", 5], ["beluga", 3] ],
 ];
+// deep-sea species only enter a pool once their layer is open
+function availablePool(grade) {
+  return (EGG_POOLS[grade] || EGG_POOLS[0]).filter(([k]) => !DEEP_REQ[k] || save.depth >= DEEP_REQ[k]);
+}
 // parent diet (lower of the pair) caps the egg grade; richer feed only raises the odds
 const BREED_EGG_ODDS = [
   [1, 0, 0],
@@ -919,7 +997,7 @@ function rollEggGrade(diet, crowns) {
   return 0;
 }
 function rollEggSpecies(grade) {
-  const pool = EGG_POOLS[grade] || EGG_POOLS[0];
+  const pool = availablePool(grade);
   const total = pool.reduce((s, p) => s + p[1], 0);
   let roll = Math.random() * total;
   for (const [key, w] of pool) { roll -= w; if (roll <= 0) return key; }
@@ -930,13 +1008,17 @@ const SELL_PRICE = {
   goldfish: 55, zebra: 50, molly: 55,
   crab: 110, puffer: 135, jelly: 135, sword: 200, whale: 400,
   betta: 150, discus: 160, bluetang: 150,
-  mola: 750, arowana: 880, golden: 1000, coelacanth: 1100, beluga: 2500,
+  hatchet: 180, angler: 350, gulper: 600, oarfish: 1300,
+  mola: 750, arowana: 880, golden: 1000, coelacanth: 1100,
+  giantsquid: 1500, bluewhale: 1800, beluga: 2500,
 };
 // first-discovery dex bounty, scaled by rarity (default 30 for commons)
 const DEX_BONUS = {
   crab: 60, puffer: 60, jelly: 60, sword: 60, whale: 60,
   betta: 60, discus: 60, bluetang: 60,
-  arowana: 150, mola: 150, coelacanth: 200, golden: 200, beluga: 500,
+  hatchet: 80, angler: 120, gulper: 180, oarfish: 300,
+  arowana: 150, mola: 150, coelacanth: 200, golden: 200,
+  giantsquid: 350, bluewhale: 400, beluga: 500,
 };
 const FRAME_SHOP = [
   { key: "", label: "기본 프레임", price: 0 },
@@ -1003,9 +1085,9 @@ function buyDepth(idx) {
 }
 
 // per-grade drop rates, derived from the same EGG_POOLS the gacha rolls
-const oddsOpen = [false, false, false]; // survives shop re-renders
+const oddsOpen = [false, false, false, false]; // survives shop re-renders
 function eggOddsRow(grade) {
-  const pool = EGG_POOLS[grade];
+  const pool = availablePool(grade);
   const total = pool.reduce((s, p) => s + p[1], 0);
   const d = document.createElement("div");
   d.className = "odds";
@@ -1116,11 +1198,11 @@ function dexSprite(key) {
 
 // a species' rarity tier = the lowest egg pool it appears in
 const tierOf = (key) => EGG_POOLS.findIndex(p => p.some(([k]) => k === key));
-const TIER_LABELS = ["🥉 일반 등급", "🥈 고급 등급", "🥇 전설 등급"];
+const TIER_LABELS = ["🥉 일반 등급", "🥈 고급 등급", "🥇 전설 등급", "🔮 신화 등급"];
 
 function renderDex() {
   dexBody.innerHTML = "";
-  for (let tier = 0; tier < 3; tier++) {
+  for (let tier = 0; tier < 4; tier++) {
     const species = SPECIES_DEF.filter(d => tierOf(d.key) === tier);
     if (!species.length) continue;
     const head = document.createElement("div");
@@ -1180,7 +1262,7 @@ function dexGrid(defs) {
 }
 
 // ---------- hatch history ----------
-const GRADE_NAMES = ["일반 알", "고급 알", "전설 알"];
+const GRADE_NAMES = ["일반 알", "고급 알", "전설 알", "신화 알"];
 function recordHatch(egg, species) {
   const g = egg.grade == null ? -1 : egg.grade;
   save.hatchLog.unshift({ g, s: species, ts: Date.now() });
@@ -1901,6 +1983,7 @@ const EGG_PALS = [
   { b: "#fff3dd", h: "#fffdf4", d: "#d9b98a" }, // common (and legacy species-fixed eggs)
   { b: "#9fd0f5", h: "#d8eeff", d: "#5f8fd4" }, // premium
   { b: "#ffe17a", h: "#fff6c9", d: "#c79a1e" }, // legendary
+  { b: "#c98fff", h: "#efe0ff", d: "#8a55cc" }, // mythic
 ];
 function drawEgg(e) {
   const pal = EGG_PALS[e.grade] || EGG_PALS[0];
@@ -1918,9 +2001,9 @@ function drawEgg(e) {
     const crack = "#7a6242";
     px(ox + 1, oy + 3, crack); px(ox + 2, oy + 2, crack); px(ox + 3, oy + 3, crack);
   }
-  // legendary eggs sparkle
-  if (e.grade === 2 && Math.floor(t * 0.004) % 3 === 0) {
-    px(e.x + rnd(-3, 4), e.y + rnd(-3, 3), "#fff6c9");
+  // legendary and mythic eggs sparkle
+  if (e.grade >= 2 && Math.floor(t * 0.004) % 3 === 0) {
+    px(e.x + rnd(-3, 4), e.y + rnd(-3, 3), e.grade === 3 ? "#efe0ff" : "#fff6c9");
   }
 }
 
@@ -1947,6 +2030,10 @@ function drawFish(f) {
   // golden sudo sparkle
   if (f.species === "golden" && Math.floor(t * 0.004) % 3 === 0) {
     px(f.x + rnd(-7, 7), f.y + rnd(-5, 5), Math.random() < 0.5 ? "#fff6c9" : "#ffd54a");
+  }
+  // anglerfish lure pulses in the dark
+  if (f.species === "angler" && Math.floor(t * 0.005) % 2 === 0) {
+    px(f.x - (f.dir === 1 ? 1 : 0), box.oy - 1, "#bff0ff");
   }
 }
 
@@ -2306,6 +2393,13 @@ function update(dt) {
         f.knock = 700; f.kvx = 1.6; f.kvy = -0.5; // bursts out through the door
         hearts.push({ x: JAIL.right + 4, y: floorY - 8, life: 1000 });
         for (let k = 0; k < 5; k++) bubbles.push({ x: JAIL.right + 2, y: floorY - 4, r: 1, ph: rnd(0, 6) });
+        // the treadmill powers the tank generator — labor pays out on release
+        const wage = ri(50, 100);
+        addGold(wage);
+        toast(`${f.customName || KOR[f.species]} 노역 완료 +${wage}🪙`);
+        for (let k = 0; k < 3; k++) {
+          coins.push({ x: JAIL.right + 4 + rnd(-2, 2), y: floorY - 6, vy: -rnd(0.15, 0.3), life: rnd(500, 900), ghost: true });
+        }
       }
       continue;
     }
@@ -2447,7 +2541,10 @@ function update(dt) {
         }
       } else if (f.retarget <= 0) {
         f.retarget = rnd(2000, 6000);
-        f.targetY = rnd(14, SAND_Y - 14); // wander the full water column, not just the upper half
+        // deep dwellers stay below the old floor line; everyone else roams the full column
+        f.targetY = DEEP_REQ[f.species] && tankDepth > 0
+          ? rnd(BASE_SAND + 4, SAND_Y - 8)
+          : rnd(14, SAND_Y - 14);
         if (Math.random() < 0.35) f.dir *= -1;
       }
     }
@@ -2472,7 +2569,7 @@ function update(dt) {
     f.y += ((f.targetY - f.y) * (f.food ? 0.009 : 0.0009) + Math.sin(t * 0.004 + f.phase) * 0.004) * dt * 0.6;
     if (f.x < 12) { f.x = 12; f.dir = 1; }
     if (f.x > W - 12) { f.x = W - 12; f.dir = -1; }
-    f.y = Math.max(10, Math.min(SAND_Y - 8, f.y));
+    f.y = Math.max(DEEP_REQ[f.species] && tankDepth > 0 ? BASE_SAND + 3 : 10, Math.min(SAND_Y - 8, f.y));
   }
 
   // free fish keep clear of the jail block
