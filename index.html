@@ -140,7 +140,9 @@
     cursor: pointer;
   }
   .item button:disabled { opacity: 0.5; cursor: default; }
-  #dexgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .dexgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 4px; }
+  .dexcell .dprice { color: #ffd54a; font-size: 10px; }
+  .dexcell .dprice img { vertical-align: -1px; margin-left: 2px; }
   .dexcell {
     border: 1px solid #1b2a45;
     border-radius: 6px;
@@ -296,8 +298,16 @@
 <script>
 (() => {
 "use strict";
-const W = 192, H = 120, SAND_Y = 108;
+// deep-sea expansion: each purchased layer extends the tank downward
+const W = 192, BASE_H = 120, BASE_SAND = 108, LAYER_H = 30, MAX_DEPTH = 2;
+let tankDepth = 0;
+try {
+  const s0 = JSON.parse(localStorage.getItem("cyber-fish-tank-save"));
+  tankDepth = Math.min(MAX_DEPTH, Math.max(0, (s0 && s0.depth) | 0));
+} catch (e) {}
+let H = BASE_H + tankDepth * LAYER_H, SAND_Y = BASE_SAND + tankDepth * LAYER_H;
 const cv = document.getElementById("tank");
+cv.height = H;
 const cx = cv.getContext("2d");
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -740,7 +750,7 @@ const plants = [
 function log() {}
 
 // ---------- economy / shop / dex ----------
-const CAP = 30; // tank capacity (fish + pending eggs)
+let CAP = 30 + 8 * tankDepth; // tank capacity (fish + pending eggs), +8 per deep-sea layer
 const SAVE_KEY = "cyber-fish-tank-save";
 let save = { gold: 0, frames: [], frame: "", dex: {}, feed: { basic: 30, prime: 0, golden: 0 }, ration: { date: "", basic: 0, prime: 0 } };
 try {
@@ -752,6 +762,7 @@ if (typeof save.dex !== "object" || !save.dex) save.dex = {};
 if (typeof save.feed !== "object" || !save.feed) save.feed = { basic: 30, prime: 0, golden: 0 };
 if (typeof save.ration !== "object" || !save.ration) save.ration = { date: "", basic: 0, prime: 0 };
 if (!Array.isArray(save.hatchLog)) save.hatchLog = [];
+save.depth = Math.min(MAX_DEPTH, Math.max(0, (save.depth) | 0));
 let saveT = 0;
 function snapshotTank() {
   save.fish = fishes.map(f => ({
@@ -963,6 +974,34 @@ function buyFeed(item) {
   renderShop();
 }
 
+// deep-sea layers: extend the tank downward, +8 capacity each
+const DEPTH_SHOP = [
+  { label: "심해 1층", price: 1500 },
+  { label: "심해 2층", price: 4000 },
+];
+
+function applyDepth() {
+  tankDepth = save.depth;
+  H = BASE_H + tankDepth * LAYER_H;
+  SAND_Y = BASE_SAND + tankDepth * LAYER_H;
+  cv.height = H;
+  CAP = 30 + 8 * tankDepth;
+  // the floor furniture sinks with the sand line
+  CHEST.y = SAND_Y - 9;
+  JAIL.top = SAND_Y - 30;
+}
+
+function buyDepth(idx) {
+  const item = DEPTH_SHOP[idx];
+  if (save.gold < item.price) { toast("골드 부족"); return; }
+  addGold(-item.price);
+  save.depth = idx + 1;
+  applyDepth();
+  persist();
+  renderShop();
+  toast(`${item.label} 개방 — 어항이 깊어졌어요 (최대 ${CAP}마리)`);
+}
+
 // per-grade drop rates, derived from the same EGG_POOLS the gacha rolls
 const oddsOpen = [false, false, false]; // survives shop re-renders
 function eggOddsRow(grade) {
@@ -1041,6 +1080,15 @@ function renderShop() {
     shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyEgg(it)));
     shopBody.appendChild(eggOddsRow(it.grade));
   }
+  sect("🌊 어항 확장");
+  DEPTH_SHOP.forEach((it, i) => {
+    const owned = save.depth > i;
+    const locked = i > save.depth; // must open layer 1 before layer 2
+    shopBody.appendChild(shopRow(
+      `${it.label} (+8마리)`, owned ? null : it.price,
+      owned ? "개방됨" : locked ? "잠김" : "구매",
+      () => buyDepth(i), owned || locked));
+  });
   sect("🖼️ 어항 테두리");
   for (const it of FRAME_SHOP) {
     const owned = it.price === 0 || save.frames.includes(it.key);
@@ -1066,11 +1114,27 @@ function dexSprite(key) {
   return SPRITES[key];
 }
 
+// a species' rarity tier = the lowest egg pool it appears in
+const tierOf = (key) => EGG_POOLS.findIndex(p => p.some(([k]) => k === key));
+const TIER_LABELS = ["🥉 일반 등급", "🥈 고급 등급", "🥇 전설 등급"];
+
 function renderDex() {
   dexBody.innerHTML = "";
+  for (let tier = 0; tier < 3; tier++) {
+    const species = SPECIES_DEF.filter(d => tierOf(d.key) === tier);
+    if (!species.length) continue;
+    const head = document.createElement("div");
+    head.className = "sect";
+    head.textContent = `${TIER_LABELS[tier]} (${species.filter(d => (save.dex[d.key] || []).length > 0).length}/${species.length})`;
+    dexBody.appendChild(head);
+    dexBody.appendChild(dexGrid(species));
+  }
+}
+
+function dexGrid(defs) {
   const grid = document.createElement("div");
-  grid.id = "dexgrid";
-  for (const d of SPECIES_DEF) {
+  grid.className = "dexgrid";
+  for (const d of defs) {
     const found = (save.dex[d.key] || []).length > 0;
     const cell = document.createElement("div");
     cell.className = "dexcell" + (found ? "" : " undisc");
@@ -1104,9 +1168,15 @@ function renderDex() {
         : "발견")
       : "미발견";
     cell.append(mc, nm, sub);
+    if (found) {
+      const pr = document.createElement("div");
+      pr.className = "dnm dprice";
+      pr.append(`판매 ${SELL_PRICE[d.key] || 40}`, coinImg(9));
+      cell.appendChild(pr);
+    }
     grid.appendChild(cell);
   }
-  dexBody.appendChild(grid);
+  return grid;
 }
 
 // ---------- hatch history ----------
@@ -1656,11 +1726,26 @@ function drawWater() {
     const o = Math.sin(t * 0.03 + x * 0.4) > 0.2 ? 0 : 1;
     cx.fillRect(x, o, 2, 1);
   }
+  // deep-sea layers: darker the further below the original floor line
+  if (SAND_Y > BASE_SAND) {
+    for (let i = 0; i < tankDepth; i++) {
+      cx.fillStyle = `rgba(2,8,18,${0.24 + i * 0.18})`;
+      cx.fillRect(0, BASE_SAND + i * LAYER_H, W, LAYER_H);
+    }
+    // abyss plankton glimmer, day and night
+    cx.fillStyle = "rgba(120,255,190,0.5)";
+    const deep = SAND_Y - BASE_SAND;
+    for (let i = 0; i < 5 * tankDepth; i++) {
+      const gx = (i * 47 + Math.floor(t * 0.005) * (i + 2)) % W;
+      const gy = BASE_SAND + 4 + (i * 29) % (deep - 8);
+      if (Math.floor(t * 0.003 + i) % 3 === 0) cx.fillRect(gx, gy, 1, 1);
+    }
+  }
   if (night) {
     // single moonbeam
     cx.fillStyle = "rgba(180,200,255,0.05)";
     const rx = 96 + Math.sin(t * 0.002) * 10;
-    cx.fillRect(rx | 0, 2, 10, SAND_Y - 2);
+    cx.fillRect(rx | 0, 2, 10, Math.min(SAND_Y, BASE_SAND) - 2);
     // plankton glow specks
     cx.fillStyle = "rgba(120,255,190,0.5)";
     for (let i = 0; i < 8; i++) {
@@ -1673,7 +1758,7 @@ function drawWater() {
     cx.fillStyle = "rgba(120,210,255,0.045)";
     for (let i = 0; i < 3; i++) {
       const rx = 30 + i * 58 + Math.sin(t * 0.004 + i * 2) * 6;
-      cx.fillRect(rx | 0, 2, 7, SAND_Y - 2);
+      cx.fillRect(rx | 0, 2, 7, Math.min(SAND_Y, BASE_SAND) - 2); // sunlight doesn't reach the abyss
     }
   }
 }
