@@ -3,21 +3,10 @@ import { S } from "./state";
 import { FISH_PALETTES, MIN_FISH, NAMES } from "./palette";
 import { SPRITES, JELLY_FRAMES, CRAB_FRAMES, SHARK_SPRITE, SHARK_PAL, MANTIS_SPRITE, MANTIS_PAL, SPECIES_DEF, DEEP_REQ, EGG_ROWS, EGG_PALS, COIN_ROWS, COIN_COLORS } from "./sprites";
 import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES } from "./economy";
+import { W, BASE_H, BASE_SAND, LAYER_H, MAX_DEPTH, cv, cx, reduced } from "./canvas";
 
 // #widget: the macOS menubar app loads this page with a hash to get the compact layout
 if (location.hash === "#widget") document.body.classList.add("compact");
-// deep-sea expansion: each purchased layer extends the tank downward
-const W = 192, BASE_H = 120, BASE_SAND = 108, LAYER_H = 15, MAX_DEPTH = 2;
-S.tankDepth = 0;
-try {
-  const s0 = JSON.parse(localStorage.getItem("cyber-fish-tank-save"));
-  S.tankDepth = Math.min(MAX_DEPTH, Math.max(0, (s0 && s0.depth) | 0));
-} catch (e) {}
-S.H = BASE_H + S.tankDepth * LAYER_H, S.SAND_Y = BASE_SAND + S.tankDepth * LAYER_H;
-const cv = document.getElementById("tank");
-cv.height = S.H;
-const cx = cv.getContext("2d");
-const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ---------- palette ----------
 
