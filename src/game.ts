@@ -1,4 +1,5 @@
 // @ts-nocheck — mechanical port from the single-file build; typing is a follow-up pass
+import { S } from "./state";
 import { FISH_PALETTES, MIN_FISH, NAMES } from "./palette";
 import { SPRITES, JELLY_FRAMES, CRAB_FRAMES, SHARK_SPRITE, SHARK_PAL, MANTIS_SPRITE, MANTIS_PAL, SPECIES_DEF, DEEP_REQ, EGG_ROWS, EGG_PALS, COIN_ROWS, COIN_COLORS } from "./sprites";
 import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES } from "./economy";
@@ -7,14 +8,14 @@ import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE,
 if (location.hash === "#widget") document.body.classList.add("compact");
 // deep-sea expansion: each purchased layer extends the tank downward
 const W = 192, BASE_H = 120, BASE_SAND = 108, LAYER_H = 15, MAX_DEPTH = 2;
-let tankDepth = 0;
+S.tankDepth = 0;
 try {
   const s0 = JSON.parse(localStorage.getItem("cyber-fish-tank-save"));
-  tankDepth = Math.min(MAX_DEPTH, Math.max(0, (s0 && s0.depth) | 0));
+  S.tankDepth = Math.min(MAX_DEPTH, Math.max(0, (s0 && s0.depth) | 0));
 } catch (e) {}
-let H = BASE_H + tankDepth * LAYER_H, SAND_Y = BASE_SAND + tankDepth * LAYER_H;
+S.H = BASE_H + S.tankDepth * LAYER_H, S.SAND_Y = BASE_SAND + S.tankDepth * LAYER_H;
 const cv = document.getElementById("tank");
-cv.height = H;
+cv.height = S.H;
 const cx = cv.getContext("2d");
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -31,18 +32,18 @@ const LOVE_AT = 3; // meals before a fish trusts you enough to be named
 const CROWN_AT = 10; // meals before a fish earns its crown (sells +50%, breeds better eggs)
 const isCrowned = (f) => f.ate >= CROWN_AT;
 const CROWN_KEEP = 10 * 60000; // crown fades 10min after the last meal; 3 feeds win it back
-let t = 0, spawnedPids = new Set();
-let shark = null, sharkTimer = rnd(45000, 90000);
-let night = false;
-// shark raid boss event
-let raid = null, raidTimer = rnd(60000, 120000), raidDark = 0;
+S.t = 0, S.spawnedPids = new Set();
+S.shark = null, S.sharkTimer = rnd(45000, 90000);
+S.night = false;
+// S.shark S.raid boss event
+S.raid = null, S.raidTimer = rnd(60000, 120000), S.raidDark = 0;
 const RAID_WARN_MS = 13000, BOSS_HP = 15;
 const WOUND_SPOTS = [[8,4],[12,5],[16,3],[10,6],[14,4],[18,5],[7,5],[20,4],[11,3],[15,6],[9,4],[17,4],[13,3],[19,5],[6,4]];
-let breedT = rnd(20000, 40000);
-let driftT = rnd(90000, 180000);
-const CHEST = { x: 146, y: SAND_Y - 9, w: 13, h: 9, openT: 0, cooldown: 0 };
+S.breedT = rnd(20000, 40000);
+S.driftT = rnd(90000, 180000);
+const CHEST = { x: 146, y: S.SAND_Y - 9, w: 13, h: 9, openT: 0, cooldown: 0 };
 // bottom-left jail: three stacked treadmill cells; drag a fish in to lock it up
-const JAIL = { x: 2, w: 25, top: SAND_Y - 30, h: 30, right: 27 };
+const JAIL = { x: 2, w: 25, top: S.SAND_Y - 30, h: 30, right: 27 };
 JAIL.slots = [null, null, null]; // one prisoner per treadmill level
 const MANTIS = { cool: 0, show: 0, dir: 1 };
 const SAND_DWELLERS = ["crab", "starfish"];
@@ -62,14 +63,14 @@ function makeFish(forceKey) {
   const def = forceKey ? SPECIES_DEF.find(d => d.key === forceKey) : pickSpecies();
   const palIdx = def.pal ? -1 : ri(0, FISH_PALETTES.length - 1);
   const pal = def.pal || FISH_PALETTES[palIdx];
-  let pid; do { pid = ri(100, 9999); } while (spawnedPids.has(pid));
-  spawnedPids.add(pid);
+  let pid; do { pid = ri(100, 9999); } while (S.spawnedPids.has(pid));
+  S.spawnedPids.add(pid);
   const f = {
     species: def.key, pal, palIdx,
     name: def.name || NAMES[ri(0, NAMES.length - 1)],
     pid,
     x: rnd(20, W - 20),
-    y: rnd(16, SAND_Y - 24),
+    y: rnd(16, S.SAND_Y - 24),
     dir: Math.random() < 0.5 ? 1 : -1,
     vx: 0,
     speed: SLOW_GIANTS.includes(def.key) ? rnd(0.105, 0.165) : rnd(0.27, 0.51),
@@ -88,18 +89,18 @@ function makeFish(forceKey) {
     jail: null, dragged: false,
     sat: 0, dietTier: 0, // satiety gates breeding; diet tier caps the egg grade
   };
-  if (def.key === "crab") { f.y = SAND_Y - 4; f.speed = rnd(0.075, 0.135); }
+  if (def.key === "crab") { f.y = S.SAND_Y - 4; f.speed = rnd(0.075, 0.135); }
   if (def.key === "jelly") { f.speed = rnd(0.02, 0.05); }
-  if (def.key === "starfish") { f.y = SAND_Y - 3; f.speed = rnd(0.008, 0.018); }
+  if (def.key === "starfish") { f.y = S.SAND_Y - 3; f.speed = rnd(0.008, 0.018); }
   if (def.key === "seahorse") { f.speed = rnd(0.03, 0.06); }
   if (def.key === "sword") { f.speed = rnd(0.45, 0.7); } // fastest fish in the tank
-  if (DEEP_REQ[def.key] && tankDepth > 0) { f.y = rnd(BASE_SAND + 4, SAND_Y - 6); } // born in the abyss
+  if (DEEP_REQ[def.key] && S.tankDepth > 0) { f.y = rnd(BASE_SAND + 4, S.SAND_Y - 6); } // born in the abyss
   return f;
 }
 
 // sand dither pattern (fixed noise)
 const sandNoise = [];
-for (let y = 0; y < H - SAND_Y; y++) {
+for (let y = 0; y < S.H - S.SAND_Y; y++) {
   sandNoise.push(Array.from({ length: W }, () => Math.random()));
 }
 // ---------- plants ----------
@@ -163,52 +164,52 @@ const plants = [
 
 // ---------- log ----------
 function log(msg) {
-  if (!Array.isArray(save.log)) save.log = [];
-  save.log.push({ ts: Date.now(), m: String(msg) });
-  if (save.log.length > 50) save.log.splice(0, save.log.length - 50);
+  if (!Array.isArray(S.save.log)) S.save.log = [];
+  S.save.log.push({ ts: Date.now(), m: String(msg) });
+  if (S.save.log.length > 50) S.save.log.splice(0, S.save.log.length - 50);
   persist();
 }
 
 // ---------- economy / shop / dex ----------
-let CAP = 30 + 8 * tankDepth; // tank capacity (fish + pending eggs), +8 per deep-sea layer
+S.CAP = 30 + 8 * S.tankDepth; // tank capacity (fish + pending eggs), +8 per deep-sea layer
 const SAVE_KEY = "cyber-fish-tank-save";
-let save = { gold: 150, frames: [], frame: "", dex: {}, feed: { basic: 30, prime: 0, golden: 0 }, ration: { date: "", basic: 0, prime: 0 } };
+S.save = { gold: 150, frames: [], frame: "", dex: {}, feed: { basic: 30, prime: 0, golden: 0 }, ration: { date: "", basic: 0, prime: 0 } };
 try {
   const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-  if (s && typeof s === "object") save = Object.assign(save, s);
+  if (s && typeof s === "object") S.save = Object.assign(S.save, s);
 } catch (e) {}
-if (!Array.isArray(save.frames)) save.frames = [];
-if (typeof save.dex !== "object" || !save.dex) save.dex = {};
-if (typeof save.feed !== "object" || !save.feed) save.feed = { basic: 30, prime: 0, golden: 0 };
-if (typeof save.ration !== "object" || !save.ration) save.ration = { date: "", basic: 0, prime: 0 };
-if (!Array.isArray(save.hatchLog)) save.hatchLog = [];
+if (!Array.isArray(S.save.frames)) S.save.frames = [];
+if (typeof S.save.dex !== "object" || !S.save.dex) S.save.dex = {};
+if (typeof S.save.feed !== "object" || !S.save.feed) S.save.feed = { basic: 30, prime: 0, golden: 0 };
+if (typeof S.save.ration !== "object" || !S.save.ration) S.save.ration = { date: "", basic: 0, prime: 0 };
+if (!Array.isArray(S.save.hatchLog)) S.save.hatchLog = [];
 // scrub old english debug-flavor entries from existing saves
-if (Array.isArray(save.log)) {
-  save.log = save.log.filter((ev) => ev && typeof ev.m === "string" &&
-    !/tank driver|pump daemon|processes attached|sudo shark|EBUSY|stack overflow|ate flake|exit 0|\[\d+\]/.test(ev.m));
+if (Array.isArray(S.save.log)) {
+  S.save.log = S.save.log.filter((ev) => ev && typeof ev.m === "string" &&
+    !/tank driver|pump daemon|processes attached|sudo S.shark|EBUSY|stack overflow|ate flake|exit 0|\[\d+\]/.test(ev.m));
 }
-save.depth = Math.min(MAX_DEPTH, Math.max(0, (save.depth) | 0));
-let saveT = 0;
+S.save.depth = Math.min(MAX_DEPTH, Math.max(0, (S.save.depth) | 0));
+S.saveT = 0;
 function snapshotTank() {
-  save.fish = fishes.map(f => ({
+  S.save.fish = fishes.map(f => ({
     s: f.species, p: f.palIdx, n: f.name, c: f.customName || "",
     a: f.ate, la: f.lastAte || 0, x: Math.round(f.x), y: Math.round(f.y),
     st: Math.round(f.sat), dt: f.dietTier,
   }));
-  save.eggs = eggs.map(e => ({
+  S.save.eggs = eggs.map(e => ({
     s: e.species, p: e.palIdx == null ? -1 : e.palIdx,
     h: Math.round(e.hatch), x: Math.round(e.x), y: Math.round(e.y),
     g: e.grade == null ? -1 : e.grade,
   }));
 }
 function persistNow() {
-  clearTimeout(saveT);
+  clearTimeout(S.saveT);
   snapshotTank();
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S.save)); } catch (e) {}
 }
 function persist() {
-  clearTimeout(saveT);
-  saveT = setTimeout(persistNow, 400);
+  clearTimeout(S.saveT);
+  S.saveT = setTimeout(persistNow, 400);
 }
 setInterval(persistNow, 5000); // the tank keeps living between saves
 addEventListener("pagehide", persistNow);
@@ -223,16 +224,16 @@ const sheetEl = document.getElementById("sheet");
 const sheetTitleEl = document.getElementById("sheetTitle");
 const popupEl = document.getElementById("fishPopup");
 const feedbarEl = document.getElementById("feedbar");
-let feedTier = 0; // which feed the next water click scatters
-let feedArmed = false; // feeding only happens while a feed button is armed
+S.feedTier = 0; // which feed the next water click scatters
+S.feedArmed = false; // feeding only happens while a feed button is armed
 
-function renderGold() { goldEl.textContent = save.gold; }
-function addGold(n) { save.gold += n; renderGold(); persist(); }
+function renderGold() { goldEl.textContent = S.save.gold; }
+function addGold(n) { S.save.gold += n; renderGold(); persist(); }
 
 // pixel coin icon for the UI, baked from the in-tank coin sprite
-let coinURL = null;
+S.coinURL = null;
 function coinImg(size) {
-  if (!coinURL) {
+  if (!S.coinURL) {
     const c = document.createElement("canvas");
     c.width = COIN_ROWS.length; c.height = COIN_ROWS.length;
     const g = c.getContext("2d");
@@ -244,10 +245,10 @@ function coinImg(size) {
         g.fillRect(col, r, 1, 1);
       }
     }
-    coinURL = c.toDataURL();
+    S.coinURL = c.toDataURL();
   }
   const img = document.createElement("img");
-  img.src = coinURL;
+  img.src = S.coinURL;
   img.className = "coin-ico";
   img.alt = "골드";
   if (size) img.style.width = img.style.height = size + "px";
@@ -269,7 +270,7 @@ function toast(msg, long) {
 
 
 function discover(species, palIdx) {
-  const list = save.dex[species] || (save.dex[species] = []);
+  const list = S.save.dex[species] || (S.save.dex[species] = []);
   const isNewSpecies = list.length === 0;
   const idx = palIdx == null ? -1 : palIdx;
   if (list.includes(idx)) return;
@@ -289,15 +290,15 @@ function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
 // feed tiers: pure buff — no starvation penalty, satiety just gates breeding
 function todayStr() { return new Date().toLocaleDateString("en-CA"); }
 function rationLeft(item) {
-  if (save.ration.date !== todayStr()) { save.ration = { date: todayStr(), basic: 0, prime: 0 }; }
-  return item.daily - (save.ration[item.key] || 0);
+  if (S.save.ration.date !== todayStr()) { S.save.ration = { date: todayStr(), basic: 0, prime: 0 }; }
+  return item.daily - (S.save.ration[item.key] || 0);
 }
 const BREED_SAT = 60;
 // graded gacha eggs: each tier's pool is a superset of the tier below —
 // rarer fish just take a bigger share as the grade goes up
 // deep-sea species only enter a pool once their layer is open
 function availablePool(grade) {
-  return (EGG_POOLS[grade] || EGG_POOLS[0]).filter(([k]) => !DEEP_REQ[k] || save.depth >= DEEP_REQ[k]);
+  return (EGG_POOLS[grade] || EGG_POOLS[0]).filter(([k]) => !DEEP_REQ[k] || S.save.depth >= DEEP_REQ[k]);
 }
 // parent diet (lower of the pair) caps the egg grade; richer feed only raises the odds
 function rollEggGrade(diet, crowns) {
@@ -328,8 +329,8 @@ function dropGradeEgg(grade, x, y, hatch) {
 }
 
 function buyEgg(item) {
-  if (fishes.length + eggs.length >= CAP) { toast(`어항이 가득 찼어요 (${CAP}마리)`); return; }
-  if (save.gold < item.price) { toast("골드 부족"); return; }
+  if (fishes.length + eggs.length >= S.CAP) { toast(`어항이 가득 찼어요 (${S.CAP}마리)`); return; }
+  if (S.save.gold < item.price) { toast("골드 부족"); return; }
   addGold(-item.price);
   dropGradeEgg(item.grade, rnd(40, 140), 8, rnd(14000, 24000));
   toast(`${item.label} 구매 — 알이 떨어집니다`);
@@ -338,14 +339,14 @@ function buyEgg(item) {
 function buyFeed(item) {
   if (item.daily > 0 && rationLeft(item) > 0) {
     // free daily ration, capped per local calendar day — paid once it runs out
-    save.ration[item.key] = (save.ration[item.key] || 0) + 1;
+    S.save.ration[item.key] = (S.save.ration[item.key] || 0) + 1;
     toast(`${item.label} ×${item.pack} 수령 (오늘 ${rationLeft(item)}회 남음)`);
   } else {
-    if (save.gold < item.price) { toast("골드 부족"); return; }
+    if (S.save.gold < item.price) { toast("골드 부족"); return; }
     addGold(-item.price);
     toast(`${item.label} ×${item.pack} 구매`);
   }
-  save.feed[item.key] = (save.feed[item.key] || 0) + item.pack;
+  S.save.feed[item.key] = (S.save.feed[item.key] || 0) + item.pack;
   persist();
   renderFeedBar();
   renderShop();
@@ -354,25 +355,25 @@ function buyFeed(item) {
 // deep-sea layers: extend the tank downward, +8 capacity each
 
 function applyDepth() {
-  tankDepth = save.depth;
-  H = BASE_H + tankDepth * LAYER_H;
-  SAND_Y = BASE_SAND + tankDepth * LAYER_H;
-  cv.height = H;
-  CAP = 30 + 8 * tankDepth;
+  S.tankDepth = S.save.depth;
+  S.H = BASE_H + S.tankDepth * LAYER_H;
+  S.SAND_Y = BASE_SAND + S.tankDepth * LAYER_H;
+  cv.height = S.H;
+  S.CAP = 30 + 8 * S.tankDepth;
   // the floor furniture sinks with the sand line
-  CHEST.y = SAND_Y - 9;
-  JAIL.top = SAND_Y - 30;
+  CHEST.y = S.SAND_Y - 9;
+  JAIL.top = S.SAND_Y - 30;
 }
 
 function buyDepth(idx) {
   const item = DEPTH_SHOP[idx];
-  if (save.gold < item.price) { toast("골드 부족"); return; }
+  if (S.save.gold < item.price) { toast("골드 부족"); return; }
   addGold(-item.price);
-  save.depth = idx + 1;
+  S.save.depth = idx + 1;
   applyDepth();
   persist();
   renderShop();
-  toast(`${item.label} 개방 — 어항이 깊어졌어요 (최대 ${CAP}마리)`);
+  toast(`${item.label} 개방 — 어항이 깊어졌어요 (최대 ${S.CAP}마리)`);
 }
 
 // per-grade drop rates, derived from the same EGG_POOLS the gacha rolls
@@ -418,7 +419,7 @@ function eggOddsRow(grade) {
 }
 
 function applyFrame(key) {
-  save.frame = key;
+  S.save.frame = key;
   persist();
   frameEl.className = "frame" + (key ? " skin-" + key : "");
   renderShop();
@@ -487,8 +488,8 @@ function renderShop() {
   }
   sect("🌊 어항 확장", "sect-depth");
   DEPTH_SHOP.forEach((it, i) => {
-    const owned = save.depth > i;
-    const locked = i > save.depth; // must open layer 1 before layer 2
+    const owned = S.save.depth > i;
+    const locked = i > S.save.depth; // must open layer 1 before layer 2
     shopBody.appendChild(shopRow(
       `${it.label} (+8마리)`, owned ? null : it.price,
       owned ? "개방됨" : locked ? "잠김" : "구매",
@@ -496,15 +497,15 @@ function renderShop() {
   });
   sect("🖼️ 어항 테두리", "sect-skin");
   for (const it of FRAME_SHOP) {
-    const owned = it.price === 0 || save.frames.includes(it.key);
-    const active = save.frame === it.key;
+    const owned = it.price === 0 || S.save.frames.includes(it.key);
+    const active = S.save.frame === it.key;
     shopBody.appendChild(shopRow(it.label, owned ? null : it.price,
       active ? "적용중" : owned ? "적용" : "구매",
       () => {
         if (!owned) {
-          if (save.gold < it.price) { toast("골드 부족"); return; }
+          if (S.save.gold < it.price) { toast("골드 부족"); return; }
           addGold(-it.price);
-          save.frames.push(it.key);
+          S.save.frames.push(it.key);
           toast(`${it.label} 잠금 해제!`);
         }
         applyFrame(it.key);
@@ -524,7 +525,7 @@ const tierOf = (key) => EGG_POOLS.findIndex(p => p.some(([k]) => k === key));
 
 function renderDex() {
   dexBody.innerHTML = "";
-  const foundTotal = SPECIES_DEF.filter(d => (save.dex[d.key] || []).length > 0).length;
+  const foundTotal = SPECIES_DEF.filter(d => (S.save.dex[d.key] || []).length > 0).length;
   const sum = document.createElement("div");
   sum.className = "sect";
   sum.textContent = `🔍 발견 ${foundTotal}/${SPECIES_DEF.length}`;
@@ -534,7 +535,7 @@ function renderDex() {
     if (!species.length) continue;
     const head = document.createElement("div");
     head.className = "sect";
-    head.textContent = `${TIER_LABELS[tier]} (${species.filter(d => (save.dex[d.key] || []).length > 0).length}/${species.length})`;
+    head.textContent = `${TIER_LABELS[tier]} (${species.filter(d => (S.save.dex[d.key] || []).length > 0).length}/${species.length})`;
     dexBody.appendChild(head);
     dexBody.appendChild(dexGrid(species));
   }
@@ -544,7 +545,7 @@ function dexGrid(defs) {
   const grid = document.createElement("div");
   grid.className = "dexgrid";
   for (const d of defs) {
-    const found = (save.dex[d.key] || []).length > 0;
+    const found = (S.save.dex[d.key] || []).length > 0;
     const cell = document.createElement("div");
     cell.className = "dexcell" + (found ? "" : " undisc");
     const rows = dexSprite(d.key);
@@ -553,7 +554,7 @@ function dexGrid(defs) {
     mc.width = rows[0].length * s;
     mc.height = rows.length * s;
     const mcx = mc.getContext("2d");
-    const firstIdx = (save.dex[d.key] || []).find(i => i >= 0);
+    const firstIdx = (S.save.dex[d.key] || []).find(i => i >= 0);
     const pal = d.pal || FISH_PALETTES[firstIdx == null ? 0 : firstIdx];
     for (let r = 0; r < rows.length; r++) {
       for (let c = 0; c < rows[r].length; c++) {
@@ -573,7 +574,7 @@ function dexGrid(defs) {
     sub.style.color = "#7fa3c8";
     sub.textContent = found
       ? (VARIED.includes(d.key)
-        ? `색 ${(save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`
+        ? `색 ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`
         : "발견")
       : "미발견";
     cell.append(mc, nm, sub);
@@ -591,8 +592,8 @@ function dexGrid(defs) {
 // ---------- hatch history ----------
 function recordHatch(egg, species) {
   const g = egg.grade == null ? -1 : egg.grade;
-  save.hatchLog.unshift({ g, s: species, ts: Date.now() });
-  if (save.hatchLog.length > 60) save.hatchLog.length = 60; // keep the last 60
+  S.save.hatchLog.unshift({ g, s: species, ts: Date.now() });
+  if (S.save.hatchLog.length > 60) S.save.hatchLog.length = 60; // keep the last 60
   persist();
   toast(`${g >= 0 ? GRADE_NAMES[g] : "알"} 부화 → ${KOR[species]}!`);
 }
@@ -621,12 +622,12 @@ function fmtWhen(ts) {
 }
 function renderLog() {
   logBody.innerHTML = "";
-  if (Array.isArray(save.log) && save.log.length) {
+  if (Array.isArray(S.save.log) && S.save.log.length) {
     const es = document.createElement("div");
     es.className = "sect";
     es.textContent = "📋 이벤트 기록";
     logBody.appendChild(es);
-    for (const ev of save.log.slice(-20).reverse()) {
+    for (const ev of S.save.log.slice(-20).reverse()) {
       const d = document.createElement("div");
       d.className = "odds evrow";
       const msg = document.createElement("span");
@@ -640,16 +641,16 @@ function renderLog() {
   }
   const s = document.createElement("div");
   s.className = "sect";
-  s.textContent = `🐣 부화 기록 (최근 ${Math.min(save.hatchLog.length, 60)}건)`;
+  s.textContent = `🐣 부화 기록 (최근 ${Math.min(S.save.hatchLog.length, 60)}건)`;
   logBody.appendChild(s);
-  if (!save.hatchLog.length) {
+  if (!S.save.hatchLog.length) {
     const d = document.createElement("div");
     d.className = "odds";
     d.textContent = "아직 부화한 알이 없어요";
     logBody.appendChild(d);
     return;
   }
-  for (const h of save.hatchLog) {
+  for (const h of S.save.hatchLog) {
     const row = document.createElement("div");
     row.className = "item";
     row.appendChild(eggIcon(h.g, 2));
@@ -684,14 +685,14 @@ function sellFish(f) {
 
 // ---------- toolbar (hover-reveal) + side sheet ----------
 const logBody = document.getElementById("logBody");
-let sheetOpen = null;
-let tbTimer = 0;
+S.sheetOpen = null;
+S.tbTimer = 0;
 function toolbarPinned() {
-  return sheetOpen || popupFish || toolbarEl.matches(":hover");
+  return S.sheetOpen || S.popupFish || toolbarEl.matches(":hover");
 }
 function resetTbTimer() {
-  clearTimeout(tbTimer);
-  tbTimer = setTimeout(() => {
+  clearTimeout(S.tbTimer);
+  S.tbTimer = setTimeout(() => {
     if (toolbarPinned()) { resetTbTimer(); return; }
     toolbarEl.classList.remove("show");
   }, 2500);
@@ -704,7 +705,7 @@ frameEl.addEventListener("mousemove", showToolbar);
 
 const SHEET_TITLES = { shop: "🏪 상점", dex: "📖 도감", log: "📜 기록" };
 function openSheet(which) {
-  sheetOpen = which;
+  S.sheetOpen = which;
   sheetEl.classList.add("open");
   sheetTitleEl.textContent = SHEET_TITLES[which];
   shopBody.classList.toggle("hidden", which !== "shop");
@@ -715,7 +716,7 @@ function openSheet(which) {
   showToolbar();
 }
 function closeSheet() {
-  sheetOpen = null;
+  S.sheetOpen = null;
   sheetEl.classList.remove("open");
 }
 document.querySelectorAll(".menubtns [data-sheet]").forEach((b) =>
@@ -723,10 +724,10 @@ document.querySelectorAll(".menubtns [data-sheet]").forEach((b) =>
 document.getElementById("sheetClose").addEventListener("click", closeSheet);
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (popupFish) { closeFishPopup(); return; }
-  if (sheetOpen) closeSheet();
+  if (S.popupFish) { closeFishPopup(); return; }
+  if (S.sheetOpen) closeSheet();
 });
-cv.addEventListener("mousedown", () => { if (sheetOpen) closeSheet(); });
+cv.addEventListener("mousedown", () => { if (S.sheetOpen) closeSheet(); });
 
 // ---------- actions ----------
 function renderFeedBar() {
@@ -738,43 +739,43 @@ function renderFeedBar() {
   feedbarEl.appendChild(lab);
   FEED_DEF.forEach((fd, i) => {
     const b = document.createElement("button");
-    b.className = feedArmed && i === feedTier ? "on" : "";
-    b.title = `${fd.label} — 물 클릭으로 급여 (남은 ${save.feed[fd.key] || 0}알)`;
+    b.className = S.feedArmed && i === S.feedTier ? "on" : "";
+    b.title = `${fd.label} — 물 클릭으로 급여 (남은 ${S.save.feed[fd.key] || 0}알)`;
     const dot = document.createElement("span");
     dot.className = "fdot";
     dot.style.background = fd.col[0];
     b.append(dot, fd.label.replace(" 사료", ""), " ");
     const cnt = document.createElement("span");
     cnt.className = "cnt";
-    cnt.textContent = `${save.feed[fd.key] || 0}`;
+    cnt.textContent = `${S.save.feed[fd.key] || 0}`;
     b.appendChild(cnt);
     b.addEventListener("click", () => {
-      if ((save.feed[fd.key] || 0) <= 0) {
+      if ((S.save.feed[fd.key] || 0) <= 0) {
         // out of stock: deep-link to the feed section of the shop
         openSheet("shop");
         scrollShopTo("sect-feed");
         return;
       }
-      if (feedArmed && feedTier === i) {
-        feedArmed = false; // second press disarms back to select mode
+      if (S.feedArmed && S.feedTier === i) {
+        S.feedArmed = false; // second press disarms back to select mode
       } else {
-        feedTier = i;
-        feedArmed = true;
+        S.feedTier = i;
+        S.feedArmed = true;
         toast("물을 클릭하면 먹이를 줘요 — 버튼을 다시 누르면 해제");
       }
       renderFeedBar();
     });
     feedbarEl.appendChild(b);
   });
-  wrap.classList.toggle("feeding", feedArmed);
+  wrap.classList.toggle("feeding", S.feedArmed);
 }
 
 function feed(px) {
-  const fd = FEED_DEF[feedTier];
-  const stock = save.feed[fd.key] || 0;
+  const fd = FEED_DEF[S.feedTier];
+  const stock = S.save.feed[fd.key] || 0;
   if (stock <= 0) { toast(`${fd.label}가 없어요 — 상점에서 구매하세요`); return; }
   const n = Math.min(stock, ri(3, 5));
-  save.feed[fd.key] = stock - n;
+  S.save.feed[fd.key] = stock - n;
   persist();
   renderFeedBar();
   const inJail = px !== undefined && px < JAIL.right + 3;
@@ -785,29 +786,29 @@ function feed(px) {
     flakes.push({
       x: fx, y: rnd(2, 8),
       vy: rnd(0.38, 0.48), life: 1400,
-      claims: 0, maxClaims: ri(1, 2), grounded: false, tier: feedTier,
+      claims: 0, maxClaims: ri(1, 2), grounded: false, tier: S.feedTier,
     });
   }
 }
 function nonCrabCount() { return fishes.filter(f => f.species !== "crab").length; }
 
 function summonShark() {
-  if (shark) return;
+  if (S.shark) return;
   const dir = Math.random() < 0.5 ? 1 : -1;
-  shark = { x: dir === 1 ? -30 : W + 30, y: rnd(30, 70), dir };
+  S.shark = { x: dir === 1 ? -30 : W + 30, y: rnd(30, 70), dir };
   log("🦈 거대 상어 출현 — 물고기들이 흩어져요");
 }
 
-// ---------- raid ----------
+// ---------- S.raid ----------
 function startRaid() {
   closeFishPopup();
-  raid = { phase: "warn", timer: RAID_WARN_MS, boss: null, rallyCd: 0, retreat: 0 };
+  S.raid = { phase: "warn", timer: RAID_WARN_MS, boss: null, rallyCd: 0, retreat: 0 };
 }
 
 // click command: synchronized all-out charge
 function rallyStrike(mx, my) {
-  const b = raid.boss;
-  raid.rallyCd = 4000;
+  const b = S.raid.boss;
+  S.raid.rallyCd = 4000;
   rings.push({ x: mx, y: my, r: 2, life: 600, col: "#46d8ff" });
   const braves = fishes.filter(f =>
     !SAND_DWELLERS.includes(f.species) && f.species !== "jelly" && f.knock <= 0 && !f.jail && !f.dragged);
@@ -824,7 +825,7 @@ function rallyStrike(mx, my) {
 
 // click command: early mantis punch at extended range
 function mantisSortie() {
-  const b = raid.boss;
+  const b = S.raid.boss;
   if (b.mcd <= 0 && Math.abs(b.x - (CHEST.x + 6)) < 36 && b.y > 40) {
     MANTIS.dir = b.x >= CHEST.x + 6 ? 1 : -1;
     MANTIS.show = 1100;
@@ -839,7 +840,7 @@ function mantisSortie() {
 }
 
 function bossHit(dmg) {
-  const b = raid.boss;
+  const b = S.raid.boss;
   b.hp -= dmg;
   for (let k = 0; k < 4 + dmg * 2; k++) {
     bubbles.push({ x: b.x + rnd(-9, 9), y: b.y + rnd(-6, 6), r: Math.random() < 0.5 ? 1 : 2, ph: rnd(0, 6) });
@@ -854,8 +855,8 @@ function endPass(b) {
 }
 
 function raidWin() {
-  const b = raid.boss;
-  raid.phase = "flee";
+  const b = S.raid.boss;
+  S.raid.phase = "flee";
   b.dir = b.x < W / 2 ? -1 : 1;
   // coin rain
   for (let k = 0; k < 16; k++) {
@@ -863,7 +864,7 @@ function raidWin() {
   }
   // one bounty egg drifts down — 35% legendary
   dropGradeEgg(Math.random() < 0.35 ? 2 : 0, rnd(40, 150), 26, rnd(20000, 32000));
-  addGold(50); // raid victory bounty
+  addGold(50); // S.raid victory bounty
   log("🦈 레이드 승리 — 보상 알과 +50골드");
   // the whole tank celebrates
   for (const f of fishes) {
@@ -874,7 +875,7 @@ function raidWin() {
 }
 
 function raidFail() {
-  const b = raid.boss;
+  const b = S.raid.boss;
   let victim = null, bd = 1e9;
   for (const f of fishes) {
     if (SAND_DWELLERS.includes(f.species) || f.species === "jelly" || f.inflated || f.jail || f.dragged) continue;
@@ -896,12 +897,12 @@ function raidFail() {
       }, 8000);
     }
   }
-  raid.phase = "flee";
+  S.raid.phase = "flee";
   b.dir = b.x < W / 2 ? -1 : 1;
 }
 
 function updateBoss(dt) {
-  const b = raid.boss;
+  const b = S.raid.boss;
   b.hitCd -= dt; b.mcd -= dt; b.jcd -= dt; b.scd -= dt; b.bitCd -= dt;
   if (b.stun > 0) {
     b.stun -= dt;
@@ -909,12 +910,12 @@ function updateBoss(dt) {
     const slow = 0.6 + (b.hp / BOSS_HP) * 0.4; // wounded boss swims slower
     b.x += (b.dir * 0.5 * slow + b.kvx) * dt * 0.06;
     b.kvx *= 1 - 0.002 * dt;
-    b.y += ((b.ty - b.y) * 0.0005 + Math.sin(t * 0.004) * 0.01) * dt * 0.6;
-    b.y = Math.max(22, Math.min(SAND_Y - 26, b.y));
+    b.y += ((b.ty - b.y) * 0.0005 + Math.sin(S.t * 0.004) * 0.01) * dt * 0.6;
+    b.y = Math.max(22, Math.min(S.SAND_Y - 26, b.y));
   }
   if (b.x < 16 && b.dir === -1) { b.x = 16; b.dir = 1; endPass(b); }
   if (b.x > W - 16 && b.dir === 1) { b.x = W - 16; b.dir = -1; endPass(b); }
-  if (!raid || raid.phase !== "fight") return;
+  if (!S.raid || S.raid.phase !== "fight") return;
 
   // bite: shoves a fish aside (stun + ragdoll, no kill mid-fight)
   if (b.bitCd <= 0) {
@@ -937,7 +938,7 @@ function updateBoss(dt) {
       if (f.species !== "puffer" || !f.inflated) continue;
       if (Math.abs(f.x - b.x) < 16 && Math.abs(f.y - b.y) < 10) {
         bossHit(2);
-        if (!raid || raid.phase !== "fight") return;
+        if (!S.raid || S.raid.phase !== "fight") return;
         b.dir *= -1;
         b.kvx = (b.x < f.x ? -1 : 1) * 1.6;
         b.hitCd = 1400;
@@ -961,7 +962,7 @@ function updateBoss(dt) {
     b.ty = Math.max(24, b.y - 18);
     b.mcd = 4200;
     bossHit(3);
-    if (!raid || raid.phase !== "fight") return;
+    if (!S.raid || S.raid.phase !== "fight") return;
   }
   // school ram: brave cluster charges together
   if (b.scd <= 0) {
@@ -981,7 +982,7 @@ function updateBoss(dt) {
 }
 function applyNightByClock() {
   const h = new Date().getHours();
-  night = h >= 19 || h < 7;
+  S.night = h >= 19 || h < 7;
 }
 applyNightByClock();
 setInterval(applyNightByClock, 60000);
@@ -1000,9 +1001,9 @@ function openChest() {
 
 // ---------- naming (affection) ----------
 const wrap = document.querySelector(".tankwrap");
-let nameInput = null;
+S.nameInput = null;
 function openNameInput(f) {
-  if (nameInput) nameInput.remove();
+  if (S.nameInput) S.nameInput.remove();
   const inp = document.createElement("input");
   inp.className = "name-input";
   inp.maxLength = 12;
@@ -1010,9 +1011,9 @@ function openNameInput(f) {
   inp.placeholder = "이름 지어주기";
   const r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
   inp.style.left = (f.x / W * r.width + (r.left - wr.left)) + "px";
-  inp.style.top = (f.y / H * r.height + (r.top - wr.top) - 10) + "px";
+  inp.style.top = (f.y / S.H * r.height + (r.top - wr.top) - 10) + "px";
   wrap.appendChild(inp);
-  nameInput = inp;
+  S.nameInput = inp;
   inp.focus();
   let done = false;
   const close = (commit) => {
@@ -1023,7 +1024,7 @@ function openNameInput(f) {
       hearts.push({ x: f.x, y: f.y - 6, life: 1400 });
     }
     inp.remove();
-    if (nameInput === inp) nameInput = null;
+    if (S.nameInput === inp) S.nameInput = null;
   };
   inp.addEventListener("keydown", (ev) => {
     ev.stopPropagation();
@@ -1053,7 +1054,7 @@ function updateNameTags() {
     tag.y += (f.y - tag.y) * 0.06;
     tag.el.textContent = f.customName;
     tag.el.style.left = (tag.x / W * r.width + (r.left - wr.left)) + "px";
-    tag.el.style.top = (tag.y / H * r.height + (r.top - wr.top) - 8) + "px";
+    tag.el.style.top = (tag.y / S.H * r.height + (r.top - wr.top) - 8) + "px";
   }
   for (const [f, tag] of nameTags) {
     if (!seen.has(f)) { tag.el.remove(); nameTags.delete(f); }
@@ -1063,7 +1064,7 @@ function updateNameTags() {
 // ---------- drag & jail ----------
 function toLogical(e) {
   const r = cv.getBoundingClientRect();
-  return { mx: (e.clientX - r.left) / r.width * W, my: (e.clientY - r.top) / r.height * H };
+  return { mx: (e.clientX - r.left) / r.width * W, my: (e.clientY - r.top) / r.height * S.H };
 }
 
 function imprison(f) {
@@ -1078,7 +1079,7 @@ function imprison(f) {
   return true;
 }
 
-let dragFish = null, dragMoved = 0, suppressClick = false;
+S.dragFish = null, S.dragMoved = 0, S.suppressClick = false;
 cv.addEventListener("mousedown", (e) => {
   const { mx, my } = toLogical(e);
   let best = null, bd = 8;
@@ -1088,26 +1089,26 @@ cv.addEventListener("mousedown", (e) => {
     if (d < bd) { bd = d; best = f; }
   }
   if (best) {
-    dragFish = best;
+    S.dragFish = best;
     best.dragged = true;
     best.knock = 0;
-    dragMoved = 0;
+    S.dragMoved = 0;
     dropFood(best);
   }
 });
 cv.addEventListener("mousemove", (e) => {
-  if (!dragFish) return;
+  if (!S.dragFish) return;
   const { mx, my } = toLogical(e);
-  dragMoved += Math.abs(mx - dragFish.x) + Math.abs(my - dragFish.y);
-  dragFish.x = Math.max(4, Math.min(W - 4, mx));
-  dragFish.y = Math.max(6, Math.min(SAND_Y - 3, my));
+  S.dragMoved += Math.abs(mx - S.dragFish.x) + Math.abs(my - S.dragFish.y);
+  S.dragFish.x = Math.max(4, Math.min(W - 4, mx));
+  S.dragFish.y = Math.max(6, Math.min(S.SAND_Y - 3, my));
 });
 function endDrag(e) {
-  if (!dragFish) return;
-  const f = dragFish;
-  dragFish = null;
+  if (!S.dragFish) return;
+  const f = S.dragFish;
+  S.dragFish = null;
   f.dragged = false;
-  if (dragMoved > 5) suppressClick = true;
+  if (S.dragMoved > 5) S.suppressClick = true;
   const inJail = f.x < JAIL.right + 3 && f.y > JAIL.top - 4;
   if (inJail && imprison(f)) {
     for (let k = 0; k < 4; k++) bubbles.push({ x: f.x, y: f.y, r: 1, ph: rnd(0, 6) });
@@ -1123,10 +1124,10 @@ cv.addEventListener("mouseup", endDrag);
 cv.addEventListener("mouseleave", endDrag);
 
 // ---------- fish context popup ----------
-let popupFish = null;
-let swallowNextClick = false;
+S.popupFish = null;
+S.swallowNextClick = false;
 function closeFishPopup() {
-  popupFish = null;
+  S.popupFish = null;
   popupEl.classList.add("hidden");
 }
 function popupSprite(f) {
@@ -1149,7 +1150,7 @@ function popupSprite(f) {
   return mc;
 }
 function openFishPopup(f) {
-  popupFish = f;
+  S.popupFish = f;
   popupEl.innerHTML = "";
   const head = document.createElement("div");
   head.className = "phead";
@@ -1193,7 +1194,7 @@ function openFishPopup(f) {
   // anchor once near the fish (no tracking), clamped inside the tank; flip below when cramped
   const r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
   const fx = f.x / W * r.width + (r.left - wr.left);
-  const fy = f.y / H * r.height + (r.top - wr.top);
+  const fy = f.y / S.H * r.height + (r.top - wr.top);
   let left = fx - popupEl.offsetWidth / 2;
   let top = fy - popupEl.offsetHeight - 10;
   if (top < 4) top = fy + 12;
@@ -1204,32 +1205,32 @@ function openFishPopup(f) {
 }
 // outside click closes the popup; that same click must not feed
 document.addEventListener("mousedown", (e) => {
-  if (!popupFish) return;
+  if (!S.popupFish) return;
   if (popupEl.contains(e.target)) return;
   closeFishPopup();
-  if (e.target === cv) swallowNextClick = true;
+  if (e.target === cv) S.swallowNextClick = true;
 });
-// fish gone (sold / eaten / raid casualty): drop the card
-setInterval(() => { if (popupFish && !fishes.includes(popupFish)) closeFishPopup(); }, 500);
+// fish gone (sold / eaten / S.raid casualty): drop the card
+setInterval(() => { if (S.popupFish && !fishes.includes(S.popupFish)) closeFishPopup(); }, 500);
 
 cv.addEventListener("click", (e) => {
-  if (suppressClick) { suppressClick = false; return; }
-  if (swallowNextClick) { swallowNextClick = false; return; }
+  if (S.suppressClick) { S.suppressClick = false; return; }
+  if (S.swallowNextClick) { S.swallowNextClick = false; return; }
   const r = cv.getBoundingClientRect();
   const mx = (e.clientX - r.left) / r.width * W;
-  const my = (e.clientY - r.top) / r.height * H;
-  // during a raid fight, clicks are battle commands
-  if (raid && raid.phase === "fight") {
-    const b = raid.boss;
+  const my = (e.clientY - r.top) / r.height * S.H;
+  // during a S.raid fight, clicks are battle commands
+  if (S.raid && S.raid.phase === "fight") {
+    const b = S.raid.boss;
     if (mx >= CHEST.x - 2 && mx <= CHEST.x + CHEST.w + 2 && my >= CHEST.y - 3 && my <= CHEST.y + CHEST.h + 2) {
       mantisSortie();
       return;
     }
     if (Math.hypot(mx - b.x, my - b.y) < 60) {
-      if (raid.rallyCd <= 0) rallyStrike(mx, my);
+      if (S.raid.rallyCd <= 0) rallyStrike(mx, my);
       return;
     }
-    raid.retreat = 2000; // far click: scatter, dodge the next bite
+    S.raid.retreat = 2000; // far click: scatter, dodge the next bite
     rings.push({ x: mx, y: my, r: 2, life: 600, col: "#e8f2fa" });
     return;
   }
@@ -1246,7 +1247,7 @@ cv.addEventListener("click", (e) => {
   }
   if (best) { openFishPopup(best); return; }
   // water clicks feed only while a feed button is armed; otherwise it's select mode
-  if (feedArmed) feed(mx);
+  if (S.feedArmed) feed(mx);
 });
 
 
@@ -1256,65 +1257,65 @@ function px(x, y, c) { cx.fillStyle = c; cx.fillRect(x | 0, y | 0, 1, 1); }
 const WATER_BANDS = ["#10233c", "#0d1d33", "#0a172a", "#081222", "#060d1a"];
 const NIGHT_BANDS = ["#0a1228", "#08101f", "#060b18", "#040812", "#03050c"];
 function drawWater() {
-  const bands = night ? NIGHT_BANDS : WATER_BANDS;
-  const bandH = SAND_Y / bands.length;
+  const bands = S.night ? NIGHT_BANDS : WATER_BANDS;
+  const bandH = S.SAND_Y / bands.length;
   for (let i = 0; i < bands.length; i++) {
     cx.fillStyle = bands[i];
     cx.fillRect(0, i * bandH | 0, W, Math.ceil(bandH) + 1);
   }
   // dither band seams
-  cx.fillStyle = night ? "rgba(140,160,255,0.04)" : "rgba(70,216,255,0.05)";
+  cx.fillStyle = S.night ? "rgba(140,160,255,0.04)" : "rgba(70,216,255,0.05)";
   for (let i = 1; i < bands.length; i++) {
     const y = (i * bandH) | 0;
     for (let x = (i % 2); x < W; x += 2) cx.fillRect(x, y, 1, 1);
   }
   // surface shimmer
-  cx.fillStyle = night ? "#12213d" : "#1e3d63";
+  cx.fillStyle = S.night ? "#12213d" : "#1e3d63";
   for (let x = 0; x < W; x += 2) {
-    const o = Math.sin(t * 0.03 + x * 0.4) > 0.2 ? 0 : 1;
+    const o = Math.sin(S.t * 0.03 + x * 0.4) > 0.2 ? 0 : 1;
     cx.fillRect(x, o, 2, 1);
   }
   // deep-sea layers: darker the further below the original floor line
-  if (SAND_Y > BASE_SAND) {
-    for (let i = 0; i < tankDepth; i++) {
+  if (S.SAND_Y > BASE_SAND) {
+    for (let i = 0; i < S.tankDepth; i++) {
       cx.fillStyle = `rgba(2,8,18,${0.24 + i * 0.18})`;
       cx.fillRect(0, BASE_SAND + i * LAYER_H, W, LAYER_H);
     }
-    // abyss plankton glimmer, day and night
+    // abyss plankton glimmer, day and S.night
     cx.fillStyle = "rgba(120,255,190,0.5)";
-    const deep = SAND_Y - BASE_SAND;
-    for (let i = 0; i < 5 * tankDepth; i++) {
-      const gx = (i * 47 + Math.floor(t * 0.005) * (i + 2)) % W;
+    const deep = S.SAND_Y - BASE_SAND;
+    for (let i = 0; i < 5 * S.tankDepth; i++) {
+      const gx = (i * 47 + Math.floor(S.t * 0.005) * (i + 2)) % W;
       const gy = BASE_SAND + 4 + (i * 29) % (deep - 8);
-      if (Math.floor(t * 0.003 + i) % 3 === 0) cx.fillRect(gx, gy, 1, 1);
+      if (Math.floor(S.t * 0.003 + i) % 3 === 0) cx.fillRect(gx, gy, 1, 1);
     }
   }
-  if (night) {
+  if (S.night) {
     // single moonbeam
     cx.fillStyle = "rgba(180,200,255,0.05)";
-    const rx = 96 + Math.sin(t * 0.002) * 10;
-    cx.fillRect(rx | 0, 2, 10, Math.min(SAND_Y, BASE_SAND) - 2);
+    const rx = 96 + Math.sin(S.t * 0.002) * 10;
+    cx.fillRect(rx | 0, 2, 10, Math.min(S.SAND_Y, BASE_SAND) - 2);
     // plankton glow specks
     cx.fillStyle = "rgba(120,255,190,0.5)";
     for (let i = 0; i < 8; i++) {
-      const gx = (i * 53 + Math.floor(t * 0.006) * (i + 3)) % W;
-      const gy = 10 + (i * 37) % (SAND_Y - 24);
-      if (Math.floor(t * 0.004 + i) % 3 === 0) cx.fillRect(gx, gy, 1, 1);
+      const gx = (i * 53 + Math.floor(S.t * 0.006) * (i + 3)) % W;
+      const gy = 10 + (i * 37) % (S.SAND_Y - 24);
+      if (Math.floor(S.t * 0.004 + i) % 3 === 0) cx.fillRect(gx, gy, 1, 1);
     }
   } else {
     // light rays
     cx.fillStyle = "rgba(120,210,255,0.045)";
     for (let i = 0; i < 3; i++) {
-      const rx = 30 + i * 58 + Math.sin(t * 0.004 + i * 2) * 6;
-      cx.fillRect(rx | 0, 2, 7, Math.min(SAND_Y, BASE_SAND) - 2); // sunlight doesn't reach the abyss
+      const rx = 30 + i * 58 + Math.sin(S.t * 0.004 + i * 2) * 6;
+      cx.fillRect(rx | 0, 2, 7, Math.min(S.SAND_Y, BASE_SAND) - 2); // sunlight doesn't reach the abyss
     }
   }
 }
 
 function drawSand() {
-  for (let y = SAND_Y; y < H; y++) {
+  for (let y = S.SAND_Y; y < S.H; y++) {
     for (let x = 0; x < W; x++) {
-      const n = sandNoise[y - SAND_Y][x];
+      const n = sandNoise[y - S.SAND_Y][x];
       px(x, y, n < 0.12 ? "#3a4d63" : n < 0.55 ? "#233246" : "#1b2839");
     }
   }
@@ -1323,11 +1324,11 @@ function drawSand() {
 const SWAY = () => (reduced ? 0.3 : 1);
 
 function drawKelp(p) {
-  const shades = night ? KELP_NIGHT : KELP_DAY;
+  const shades = S.night ? KELP_NIGHT : KELP_DAY;
   for (let i = 0; i < p.h; i++) {
-    const y = SAND_Y - 1 - i;
+    const y = S.SAND_Y - 1 - i;
     const fr = i / p.h;
-    const off = Math.round(Math.sin(t * 0.016 + p.ph + i * 0.2) * SWAY() * fr * 3);
+    const off = Math.round(Math.sin(S.t * 0.016 + p.ph + i * 0.2) * SWAY() * fr * 3);
     const col = fr > 0.78 ? shades[2] : fr > 0.42 ? shades[1] : shades[0];
     px(p.x + off, y, col);
     // alternating leaves
@@ -1339,57 +1340,57 @@ function drawKelp(p) {
     }
   }
   // luminous tip
-  const tipOff = Math.round(Math.sin(t * 0.016 + p.ph + p.h * 0.2) * SWAY() * 3);
-  px(p.x + tipOff, SAND_Y - p.h, night ? "#3dff8b" : "#8dffc0");
+  const tipOff = Math.round(Math.sin(S.t * 0.016 + p.ph + p.h * 0.2) * SWAY() * 3);
+  px(p.x + tipOff, S.SAND_Y - p.h, S.night ? "#3dff8b" : "#8dffc0");
 }
 
 function drawGrass(p) {
-  const shades = night ? KELP_NIGHT : KELP_DAY;
+  const shades = S.night ? KELP_NIGHT : KELP_DAY;
   for (const b of p.blades) {
     for (let i = 0; i < b.h; i++) {
-      const y = SAND_Y - 1 - i;
-      const off = Math.round(Math.sin(t * 0.024 + b.ph + i * 0.3) * SWAY() * (i / b.h) * 2.2);
+      const y = S.SAND_Y - 1 - i;
+      const off = Math.round(Math.sin(S.t * 0.024 + b.ph + i * 0.3) * SWAY() * (i / b.h) * 2.2);
       px(p.x + b.dx + off, y, i > b.h - 3 ? shades[2] : i > b.h / 2 ? shades[1] : shades[0]);
     }
   }
 }
 
 function drawBush(p) {
-  const shades = night ? BUSH_NIGHT : BUSH_DAY;
-  const off = Math.round(Math.sin(t * 0.012 + p.ph) * SWAY());
+  const shades = S.night ? BUSH_NIGHT : BUSH_DAY;
+  const off = Math.round(Math.sin(S.t * 0.012 + p.ph) * SWAY());
   for (const [dx, dy, ci] of p.pix) {
     const topHalf = dy < -p.ry;
-    px(p.x + dx + (topHalf ? off : 0), SAND_Y - 1 + dy + p.ry, shades[ci]);
+    px(p.x + dx + (topHalf ? off : 0), S.SAND_Y - 1 + dy + p.ry, shades[ci]);
   }
 }
 
 function drawCoral(p) {
-  const body = night ? "#8a3352" : "#c2436f";
-  const tip = night ? "#c2436f" : "#ff6b9d";
-  for (const [dx, dy, ci] of p.pix) px(p.x + dx, SAND_Y - 1 + dy, ci ? tip : body);
+  const body = S.night ? "#8a3352" : "#c2436f";
+  const tip = S.night ? "#c2436f" : "#ff6b9d";
+  for (const [dx, dy, ci] of p.pix) px(p.x + dx, S.SAND_Y - 1 + dy, ci ? tip : body);
   for (const [dx, dy, ph] of p.polyps) {
-    const on = Math.sin(t * 0.004 + ph) > 0.4;
-    px(p.x + dx, SAND_Y - 1 + dy, on ? "#ffd6e6" : tip);
+    const on = Math.sin(S.t * 0.004 + ph) > 0.4;
+    px(p.x + dx, S.SAND_Y - 1 + dy, on ? "#ffd6e6" : tip);
   }
 }
 
 function drawFiber(p) {
-  const stem = night ? "#26364e" : "#1c2a3f";
+  const stem = S.night ? "#26364e" : "#1c2a3f";
   for (const s of p.strands) {
     let sx = p.x;
     for (let i = 0; i < s.len; i++) {
-      const y = SAND_Y - 1 - i;
+      const y = S.SAND_Y - 1 - i;
       const curve = s.spread * (i / s.len) * 4;
-      const off = Math.sin(t * 0.014 + s.ph + i * 0.15) * SWAY() * (i / s.len) * 1.5;
+      const off = Math.sin(S.t * 0.014 + s.ph + i * 0.15) * SWAY() * (i / s.len) * 1.5;
       sx = p.x + Math.round(curve + off);
       px(sx, y, stem);
     }
-    // glowing tip: pulses, brighter at night
-    const gy = SAND_Y - 1 - s.len;
-    const col = GLOW_CYCLE[(s.ci + Math.floor(t * 0.0008)) % GLOW_CYCLE.length];
-    const pulse = Math.sin(t * 0.006 + s.ph) * 0.5 + 0.5;
+    // glowing tip: pulses, brighter at S.night
+    const gy = S.SAND_Y - 1 - s.len;
+    const col = GLOW_CYCLE[(s.ci + Math.floor(S.t * 0.0008)) % GLOW_CYCLE.length];
+    const pulse = Math.sin(S.t * 0.006 + s.ph) * 0.5 + 0.5;
     px(sx, gy, col);
-    cx.globalAlpha = (night ? 0.5 : 0.25) * pulse;
+    cx.globalAlpha = (S.night ? 0.5 : 0.25) * pulse;
     cx.fillStyle = col;
     cx.fillRect(sx - 1, gy, 1, 1); cx.fillRect(sx + 1, gy, 1, 1);
     cx.fillRect(sx, gy - 1, 1, 1); cx.fillRect(sx, gy + 1, 1, 1);
@@ -1406,12 +1407,12 @@ function drawRocks() {
     for (let hgt = 0; hgt <= r; hgt++) {
       const hw = Math.round(Math.sqrt(r * r - hgt * hgt) * 0.95);
       cx.fillStyle = col;
-      cx.fillRect(mx - hw, SAND_Y - 1 - hgt, hw * 2 + 1, 1);
+      cx.fillRect(mx - hw, S.SAND_Y - 1 - hgt, hw * 2 + 1, 1);
     }
   }
   // moss
-  px(87, SAND_Y - 8, "#2fbf68"); px(90, SAND_Y - 9, "#17d96b"); px(93, SAND_Y - 8, "#22b35c");
-  px(97, SAND_Y - 6, "#2fbf68"); px(100, SAND_Y - 5, "#22b35c"); px(82, SAND_Y - 5, "#17d96b");
+  px(87, S.SAND_Y - 8, "#2fbf68"); px(90, S.SAND_Y - 9, "#17d96b"); px(93, S.SAND_Y - 8, "#22b35c");
+  px(97, S.SAND_Y - 6, "#2fbf68"); px(100, S.SAND_Y - 5, "#22b35c"); px(82, S.SAND_Y - 5, "#17d96b");
 }
 
 function drawSprite(rows, cxr, cyr, dir, pal, opts) {
@@ -1440,7 +1441,7 @@ function drawSprite(rows, cxr, cyr, dir, pal, opts) {
 function drawEgg(e) {
   const pal = EGG_PALS[e.grade] || EGG_PALS[0];
   // hatching soon: rock side to side, then a crack appears
-  const wobble = e.hatch < 4000 ? Math.round(Math.sin(t * 0.03)) : 0;
+  const wobble = e.hatch < 4000 ? Math.round(Math.sin(S.t * 0.03)) : 0;
   const ox = Math.round(e.x) - 2 + wobble;
   const oy = Math.round(e.y) + 2 - EGG_ROWS.length + 1; // bottom rests where the 2x2 egg used to
   for (let r = 0; r < EGG_ROWS.length; r++) {
@@ -1454,15 +1455,15 @@ function drawEgg(e) {
     px(ox + 1, oy + 3, crack); px(ox + 2, oy + 2, crack); px(ox + 3, oy + 3, crack);
   }
   // legendary and mythic eggs sparkle
-  if (e.grade >= 2 && Math.floor(t * 0.004) % 3 === 0) {
+  if (e.grade >= 2 && Math.floor(S.t * 0.004) % 3 === 0) {
     px(e.x + rnd(-3, 4), e.y + rnd(-3, 3), e.grade === 3 ? "#efe0ff" : "#fff6c9");
   }
 }
 
 function drawFish(f) {
   // ~0.5s tail beat, phase-shifted per fish so the school doesn't flap in sync
-  const fastFrame = Math.floor(t * (reduced ? 0.0015 : 0.003) + f.phase) % 2;
-  const slowFrame = Math.floor(t * (reduced ? 0.0008 : 0.0015) + f.phase) % 2;
+  const fastFrame = Math.floor(S.t * (reduced ? 0.0015 : 0.003) + f.phase) % 2;
+  const slowFrame = Math.floor(S.t * (reduced ? 0.0008 : 0.0015) + f.phase) % 2;
   let rows, opts = { squish: fastFrame === 1 };
   if (f.species === "jelly") { rows = JELLY_FRAMES[slowFrame]; opts = {}; }
   else if (f.species === "crab") { rows = CRAB_FRAMES[fastFrame]; opts = {}; }
@@ -1480,32 +1481,32 @@ function drawFish(f) {
     px(hx - 1, box.oy - 3, "#ffd54a"); px(hx + 1, box.oy - 3, "#ffd54a");
   }
   // golden sudo sparkle
-  if (f.species === "golden" && Math.floor(t * 0.004) % 3 === 0) {
+  if (f.species === "golden" && Math.floor(S.t * 0.004) % 3 === 0) {
     px(f.x + rnd(-7, 7), f.y + rnd(-5, 5), Math.random() < 0.5 ? "#fff6c9" : "#ffd54a");
   }
   // anglerfish lure pulses in the dark
-  if (f.species === "angler" && Math.floor(t * 0.005) % 2 === 0) {
+  if (f.species === "angler" && Math.floor(S.t * 0.005) % 2 === 0) {
     px(f.x - (f.dir === 1 ? 1 : 0), box.oy - 1, "#bff0ff");
   }
 }
 
 function drawShark() {
-  if (!shark) return;
-  drawSprite(SHARK_SPRITE, shark.x, shark.y, shark.dir, SHARK_PAL, {});
+  if (!S.shark) return;
+  drawSprite(SHARK_SPRITE, S.shark.x, S.shark.y, S.shark.dir, SHARK_PAL, {});
 }
 
 function drawRaid() {
-  if (!raid) return;
-  if (raid.phase === "warn") {
+  if (!S.raid) return;
+  if (S.raid.phase === "warn") {
     // distant fin silhouette glides past in the gloom
-    const p = 1 - raid.timer / RAID_WARN_MS;
+    const p = 1 - S.raid.timer / RAID_WARN_MS;
     const sx = -30 + p * (W + 60);
     cx.globalAlpha = 0.18;
     drawSprite(SHARK_SPRITE, sx, 17, 1, { b: "#0b1830", d: "#081226", f: "#081226" }, {});
     cx.globalAlpha = 1;
     return;
   }
-  const b = raid.boss;
+  const b = S.raid.boss;
   const rows = SHARK_SPRITE, h = rows.length, w = rows[0].length, s = 2;
   const ox = Math.round(b.x - w), oy = Math.round(b.y - h);
   for (let r = 0; r < h; r++) {
@@ -1517,7 +1518,7 @@ function drawRaid() {
         ch === "b" ? "#4a5f74" :
         ch === "d" ? "#32424f" :
         ch === "w" ? "#e8f2fa" :
-        (raidDark > 0.5 ? "#ff3b3b" : "#0a0e14"); // eye burns red in the dark
+        (S.raidDark > 0.5 ? "#ff3b3b" : "#0a0e14"); // eye burns red in the dark
       cx.fillRect(ox + dc * s, oy + r * s, s, s);
     }
   }
@@ -1534,11 +1535,11 @@ function drawJailBack() {
   cx.fillStyle = "rgba(8, 13, 24, 0.5)";
   cx.fillRect(JAIL.x, JAIL.top, JAIL.w, JAIL.h);
   for (let s = 0; s < 3; s++) {
-    const fy = SAND_Y - 1 - s * 10; // this level's floor
+    const fy = S.SAND_Y - 1 - s * 10; // this level's floor
     if (s > 0) { cx.fillStyle = "#2a3547"; cx.fillRect(JAIL.x + 1, fy + 1, JAIL.w - 2, 1); }
     // treadmill: rollers, animated belt, console post with a running light
     const bx = 6, bw = 14;
-    const shift = Math.floor(t * 0.02) % 4;
+    const shift = Math.floor(S.t * 0.02) % 4;
     for (let i = 0; i < bw; i++) {
       cx.fillStyle = ((i + shift) % 4 < 2) ? "#4a5668" : "#2f3b4e"; // belt runs opposite the fish (leftward)
       cx.fillRect(bx + i, fy - 1, 1, 1);
@@ -1546,7 +1547,7 @@ function drawJailBack() {
     cx.fillStyle = "#141b29"; cx.fillRect(bx, fy, bw, 1);
     px(bx - 1, fy - 1, "#5a6a82"); px(bx + bw, fy - 1, "#5a6a82");
     cx.fillStyle = "#3a4556"; cx.fillRect(bx + bw + 2, fy - 5, 1, 5);
-    px(bx + bw + 2, fy - 6, Math.floor(t * 0.01 + s) % 2 ? "#3dff8b" : "#14532d");
+    px(bx + bw + 2, fy - 6, Math.floor(S.t * 0.01 + s) % 2 ? "#3dff8b" : "#14532d");
     // sentence progress above an occupied treadmill
     const pf = JAIL.slots[s];
     if (pf && pf.jail) {
@@ -1573,7 +1574,7 @@ function drawJailFront() {
 const COIN_H = COIN_ROWS.length, COIN_C = (COIN_H - 1) / 2;
 function drawCoins() {
   for (const c of coins) {
-    const phc = Math.floor(t * 0.005 + c.x * 0.7) % 4;
+    const phc = Math.floor(S.t * 0.005 + c.x * 0.7) % 4;
     const scale = phc === 0 ? 1 : phc === 2 ? 0.35 : 0.7; // spins as it falls
     for (let r = 0; r < COIN_H; r++) {
       for (let col = 0; col < COIN_H; col++) {
@@ -1596,7 +1597,7 @@ function drawChest() {
     cx.fillStyle = "#6b4a2a"; cx.fillRect(X - 1, Y - 3, 13, 2);
     cx.fillStyle = "#8a6236"; cx.fillRect(X - 1, Y - 4, 13, 1);
     // glow from inside
-    cx.fillStyle = Math.floor(t * 0.003) % 2 ? "#ffd54a" : "#ffe89a";
+    cx.fillStyle = Math.floor(S.t * 0.003) % 2 ? "#ffd54a" : "#ffe89a";
     cx.fillRect(X + 2, Y + 2, 9, 1);
   } else {
     cx.fillStyle = "#6b4a2a"; cx.fillRect(X, Y, 13, 3);
@@ -1652,57 +1653,57 @@ function eat(f, fl) {
 }
 
 function update(dt) {
-  t += dt;
-  const nightMul = night ? 0.5 : 1;
+  S.t += dt;
+  const nightMul = S.night ? 0.5 : 1;
 
-  // raid state machine
-  if (!raid) {
-    raidTimer -= dt;
-    if (raidTimer <= 0 && fishes.length >= 8 && !shark) startRaid();
-  } else if (raid.phase === "warn") {
-    raid.timer -= dt;
-    if (raid.timer <= 0) {
+  // S.raid state machine
+  if (!S.raid) {
+    S.raidTimer -= dt;
+    if (S.raidTimer <= 0 && fishes.length >= 8 && !S.shark) startRaid();
+  } else if (S.raid.phase === "warn") {
+    S.raid.timer -= dt;
+    if (S.raid.timer <= 0) {
       const dir = Math.random() < 0.5 ? 1 : -1;
-      raid.boss = {
+      S.raid.boss = {
         x: dir === 1 ? -30 : W + 30, y: 45, ty: rnd(32, 64), dir,
         hp: BOSS_HP, passes: 0, stun: 0, kvx: 0,
         hitCd: 0, mcd: 2000, jcd: 0, scd: 2500, bitCd: 1000,
       };
-      raid.phase = "fight";
+      S.raid.phase = "fight";
     }
-  } else if (raid.phase === "fight") {
-    raid.rallyCd -= dt;
-    raid.retreat -= dt;
+  } else if (S.raid.phase === "fight") {
+    S.raid.rallyCd -= dt;
+    S.raid.retreat -= dt;
     updateBoss(dt);
-  } else if (raid.phase === "flee") {
-    const b = raid.boss;
+  } else if (S.raid.phase === "flee") {
+    const b = S.raid.boss;
     b.x += b.dir * 1.8 * dt * 0.06;
     if (b.x < -45 || b.x > W + 45) {
-      raid = null;
-      raidTimer = rnd(140000, 280000);
+      S.raid = null;
+      S.raidTimer = rnd(140000, 280000);
     }
   }
-  raidDark += (((raid && raid.phase !== "flee") ? 1 : 0) - raidDark) * 0.0012 * dt;
-  const threat = raid && raid.phase === "fight" ? raid.boss : shark;
-  const fleeR = raid && raid.phase === "fight" ? 26 : 75;
+  S.raidDark += (((S.raid && S.raid.phase !== "flee") ? 1 : 0) - S.raidDark) * 0.0012 * dt;
+  const threat = S.raid && S.raid.phase === "fight" ? S.raid.boss : S.shark;
+  const fleeR = S.raid && S.raid.phase === "fight" ? 26 : 75;
 
-  // shark event (paused during raids)
-  if (!raid) sharkTimer -= dt;
-  if (!raid && !shark && sharkTimer <= 0) { summonShark(); }
-  if (shark) {
-    shark.x += shark.dir * (reduced ? 0.4 : 0.75) * dt * 0.06;
-    shark.y += Math.sin(t * 0.005) * 0.03 * dt * 0.06;
+  // S.shark event (paused during raids)
+  if (!S.raid) S.sharkTimer -= dt;
+  if (!S.raid && !S.shark && S.sharkTimer <= 0) { summonShark(); }
+  if (S.shark) {
+    S.shark.x += S.shark.dir * (reduced ? 0.4 : 0.75) * dt * 0.06;
+    S.shark.y += Math.sin(S.t * 0.005) * 0.03 * dt * 0.06;
     // first fish caught in the mouth gets eaten (one per visit)
-    if (!shark.fed) {
-      const mx = shark.x + shark.dir * 9;
+    if (!S.shark.fed) {
+      const mx = S.shark.x + S.shark.dir * 9;
       for (let i = 0; i < fishes.length; i++) {
         const f = fishes[i];
         if (SAND_DWELLERS.includes(f.species) || f.species === "jelly" || f.jail || f.dragged) continue;
         if (f.inflated) continue; // spikes: inflated puffer is inedible
-        if (Math.abs(f.x - mx) < 7 && Math.abs(f.y - shark.y) < 5) {
+        if (Math.abs(f.x - mx) < 7 && Math.abs(f.y - S.shark.y) < 5) {
           dropFood(f);
           fishes.splice(i, 1);
-          shark.fed = true;
+          S.shark.fed = true;
           for (let k = 0; k < 10; k++) {
             bubbles.push({ x: f.x + rnd(-4, 4), y: f.y + rnd(-3, 3), r: Math.random() < 0.5 ? 1 : 2, ph: rnd(0, 6) });
           }
@@ -1717,18 +1718,18 @@ function update(dt) {
         }
       }
     }
-    if (shark.x < -35 || shark.x > W + 35) {
-      shark = null;
-      sharkTimer = rnd(60000, 150000);
+    if (S.shark.x < -35 || S.shark.x > W + 35) {
+      S.shark = null;
+      S.sharkTimer = rnd(60000, 150000);
     }
   }
 
   // mantis shrimp guards the chest: punches anything that swims too close
-  // (during a raid fight it saves its punches for the boss; while a shark
-  // hunts it holds fire — a knocked-out fish is shark food)
+  // (during a S.raid fight it saves its punches for the boss; while a S.shark
+  // hunts it holds fire — a knocked-out fish is S.shark food)
   MANTIS.cool -= dt;
   if (MANTIS.show > 0) MANTIS.show -= dt;
-  if (MANTIS.cool <= 0 && !shark && (!raid || raid.phase === "warn")) {
+  if (MANTIS.cool <= 0 && !S.shark && (!S.raid || S.raid.phase === "warn")) {
     for (const f of fishes) {
       if (SAND_DWELLERS.includes(f.species) || f.knock > 0 || f.jail || f.dragged) continue;
       if (Math.abs(f.x - (CHEST.x + 6)) < 13 && f.y > CHEST.y - 15) {
@@ -1752,10 +1753,10 @@ function update(dt) {
   }
 
   // breeding: a close same-species pair lays 1-2 eggs
-  breedT -= dt;
-  if (breedT <= 0) {
-    breedT = rnd(25000, 50000);
-    if (!raid && eggs.length === 0 && fishes.length < CAP - 1) {
+  S.breedT -= dt;
+  if (S.breedT <= 0) {
+    S.breedT = rnd(25000, 50000);
+    if (!S.raid && eggs.length === 0 && fishes.length < S.CAP - 1) {
       outer:
       for (let i = 0; i < fishes.length; i++) {
         for (let j = i + 1; j < fishes.length; j++) {
@@ -1782,11 +1783,11 @@ function update(dt) {
   // eggs sink to the sand, then hatch
   for (let i = eggs.length - 1; i >= 0; i--) {
     const e = eggs[i];
-    if (e.y < SAND_Y - 3) e.y += 0.04 * dt * 0.06;
+    if (e.y < S.SAND_Y - 3) e.y += 0.04 * dt * 0.06;
     e.hatch -= dt;
     if (e.hatch <= 0) {
       eggs.splice(i, 1);
-      if (fishes.length < CAP) {
+      if (fishes.length < S.CAP) {
         // graded eggs roll their species only now, at the moment of hatching
         const species = e.grade != null ? rollEggSpecies(e.grade) : e.species;
         const baby = makeFish(species);
@@ -1794,8 +1795,8 @@ function update(dt) {
           baby.pal = e.pal;
           if (e.palIdx != null) baby.palIdx = e.palIdx;
         }
-        baby.x = e.x; baby.y = Math.min(e.y, SAND_Y - 12);
-        if (species === "crab" || species === "starfish") baby.y = SAND_Y - 4;
+        baby.x = e.x; baby.y = Math.min(e.y, S.SAND_Y - 12);
+        if (species === "crab" || species === "starfish") baby.y = S.SAND_Y - 4;
         addFish(baby);
         recordHatch(e, species);
         for (let k = 0; k < 4; k++) bubbles.push({ x: e.x + rnd(-2, 2), y: e.y, r: 1, ph: rnd(0, 6) });
@@ -1804,10 +1805,10 @@ function update(dt) {
   }
 
   // occasional drifter wanders in
-  driftT -= dt;
-  if (driftT <= 0) {
-    driftT = rnd(90000, 180000);
-    if (!raid && fishes.length < 12) addFish(makeFish());
+  S.driftT -= dt;
+  if (S.driftT <= 0) {
+    S.driftT = rnd(90000, 180000);
+    if (!S.raid && fishes.length < 12) addFish(makeFish());
   }
 
   // fish
@@ -1817,10 +1818,10 @@ function update(dt) {
     // doing time: swim the treadmill until the sentence is served
     if (f.jail) {
       f.jail.sentence -= dt;
-      const floorY = SAND_Y - 1 - f.jail.slot * 10;
+      const floorY = S.SAND_Y - 1 - f.jail.slot * 10;
       f.dir = 1;
-      f.x = 13 + Math.sin(t * 0.02 + f.phase) * 0.6;
-      f.y = floorY - 4 + Math.sin(t * 0.018 + f.phase) * 0.5;
+      f.x = 13 + Math.sin(S.t * 0.02 + f.phase) * 0.6;
+      f.y = floorY - 4 + Math.sin(S.t * 0.018 + f.phase) * 0.5;
       f.vx = 0;
       if (Math.random() < 0.0012 * dt) bubbles.push({ x: f.x + 4, y: f.y - 3, r: 1, ph: rnd(0, 6) }); // effort bubbles
       // catches meals dropped into the cell as they fall past
@@ -1855,7 +1856,7 @@ function update(dt) {
       if (f.x < 9) { f.x = 9; f.kvx = Math.abs(f.kvx) * 0.92; }
       if (f.x > W - 9) { f.x = W - 9; f.kvx = -Math.abs(f.kvx) * 0.92; }
       if (f.y < 8) { f.y = 8; f.kvy = Math.abs(f.kvy) * 0.92; }
-      if (f.y > SAND_Y - 7) { f.y = SAND_Y - 7; f.kvy = -Math.abs(f.kvy) * 0.92; }
+      if (f.y > S.SAND_Y - 7) { f.y = S.SAND_Y - 7; f.kvy = -Math.abs(f.kvy) * 0.92; }
       const drag = 1 - 0.0005 * dt;
       f.kvx *= drag; f.kvy *= drag;
       f.dir = f.kvx >= 0 ? 1 : -1; // tumbles with each wall hit
@@ -1865,7 +1866,7 @@ function update(dt) {
 
     if (f.species === "starfish") {
       // barely crawls along the sand
-      f.y = SAND_Y - 3;
+      f.y = S.SAND_Y - 3;
       if (f.retarget <= 0) { f.retarget = rnd(6000, 14000); if (Math.random() < 0.5) f.dir *= -1; }
       f.x += f.dir * f.speed * nightMul * dt * 0.06;
       if (f.x < 8) { f.x = 8; f.dir = 1; }
@@ -1877,20 +1878,20 @@ function update(dt) {
       // upright bobbing, drifts between plants
       if (f.retarget <= 0) {
         f.retarget = rnd(5000, 11000);
-        f.targetY = rnd(24, SAND_Y - 18);
+        f.targetY = rnd(24, S.SAND_Y - 18);
         f.tx = rnd(14, W - 14);
       }
       f.x += (f.tx - f.x) * 0.00025 * dt * nightMul;
       f.dir = f.tx > f.x ? 1 : -1;
-      f.y += ((f.targetY - f.y) * 0.0006 + Math.sin(t * 0.003 + f.phase) * 0.012) * dt * 0.6 * nightMul;
-      f.y = Math.max(14, Math.min(SAND_Y - 12, f.y));
+      f.y += ((f.targetY - f.y) * 0.0006 + Math.sin(S.t * 0.003 + f.phase) * 0.012) * dt * 0.6 * nightMul;
+      f.y = Math.max(14, Math.min(S.SAND_Y - 12, f.y));
       f.x = Math.max(10, Math.min(W - 10, f.x));
       continue;
     }
 
     if (f.species === "crab") {
       // ferris walks the sand, eats flakes that land nearby
-      f.y = SAND_Y - 4;
+      f.y = S.SAND_Y - 4;
       if (f.retarget <= 0) {
         f.retarget = rnd(2500, 7000);
         if (Math.random() < 0.5) f.dir *= -1;
@@ -1899,7 +1900,7 @@ function update(dt) {
       if (f.scurry > 0) f.scurry -= dt;
       let snack = null;
       for (const fl of flakes) {
-        if (fl.y > SAND_Y - 8 && Math.abs(fl.x - f.x) < 40) { snack = fl; break; }
+        if (fl.y > S.SAND_Y - 8 && Math.abs(fl.x - f.x) < 40) { snack = fl; break; }
       }
       if (snack) {
         f.dir = snack.x > f.x ? 1 : -1;
@@ -1913,15 +1914,15 @@ function update(dt) {
 
     if (f.species === "jelly") {
       // jellyfin drifts and pulses, ignores food and sharks
-      f.y += (Math.sin(t * 0.0015 + f.phase) * 0.06 - 0.005) * dt * 0.06 * nightMul;
-      f.x += Math.sin(t * 0.0008 + f.phase * 2) * 0.04 * dt * 0.06 * nightMul;
-      f.y = Math.max(12, Math.min(SAND_Y - 14, f.y));
+      f.y += (Math.sin(S.t * 0.0015 + f.phase) * 0.06 - 0.005) * dt * 0.06 * nightMul;
+      f.x += Math.sin(S.t * 0.0008 + f.phase * 2) * 0.04 * dt * 0.06 * nightMul;
+      f.y = Math.max(12, Math.min(S.SAND_Y - 14, f.y));
       f.x = Math.max(10, Math.min(W - 10, f.x));
       continue;
     }
 
-    // raid omen: swimmers sink toward cover among the plants
-    if (raid && raid.phase === "warn") f.targetY = Math.max(f.targetY, SAND_Y - 26);
+    // S.raid omen: swimmers sink toward cover among the plants
+    if (S.raid && S.raid.phase === "warn") f.targetY = Math.max(f.targetY, S.SAND_Y - 26);
 
     // puffer inflation: scheduled hiccups + threat proximity
     if (f.species === "puffer") {
@@ -1931,16 +1932,16 @@ function update(dt) {
       if (f.puffT < 0) f.puffT = rnd(12000, 26000);
     }
 
-    // raid combat: the whole school mobs the boss in hit-and-run waves
-    if (raid && raid.phase === "fight" && !f.inflated) {
-      const b = raid.boss;
+    // S.raid combat: the whole school mobs the boss in hit-and-run waves
+    if (S.raid && S.raid.phase === "fight" && !f.inflated) {
+      const b = S.raid.boss;
       f.aggroT -= dt;
       if (f.aggroT <= 0) {
         f.aggroT = rnd(1000, 2400);
         f.aggro = Math.random() < 0.7; // most of the tank fights, a few catch their breath
         f.aggroY = rnd(-9, 9);
       }
-      if (raid.retreat > 0) f.aggro = false; // scatter command overrides
+      if (S.raid.retreat > 0) f.aggro = false; // scatter command overrides
       dropFood(f);
       if (f.aggro) {
         // dart at the boss flank
@@ -1949,13 +1950,13 @@ function update(dt) {
       } else {
         // peel off before circling back
         f.dir = f.x < b.x ? -1 : 1;
-        f.targetY = f.y < 50 ? 18 : SAND_Y - 16;
+        f.targetY = f.y < 50 ? 18 : S.SAND_Y - 16;
       }
     }
-    // flee threat (regular shark passes)
+    // flee threat (regular S.shark passes)
     else if (threat && Math.abs(threat.x - f.x) < fleeR && !f.inflated) {
       f.dir = f.x < threat.x ? -1 : 1;
-      f.targetY = f.y < threat.y ? 16 : SAND_Y - 14;
+      f.targetY = f.y < threat.y ? 16 : S.SAND_Y - 14;
       dropFood(f);
     } else {
       if (f.foodCd > 0) f.foodCd -= dt;
@@ -1967,7 +1968,7 @@ function update(dt) {
       }
       // probabilistic interest: hungry fish react sooner, and a flake
       // only gets chased by the 1-2 fish that claimed it first
-      if (!raid && !f.food && f.foodCd <= 0 && Math.random() < 0.012 * (0.6 + 0.4 * (1 - f.sat / 100)) * dt) {
+      if (!S.raid && !f.food && f.foodCd <= 0 && Math.random() < 0.012 * (0.6 + 0.4 * (1 - f.sat / 100)) * dt) {
         claimFlake(f, 150);
       }
       if (f.food) {
@@ -1982,15 +1983,15 @@ function update(dt) {
       } else if (f.retarget <= 0) {
         f.retarget = rnd(2000, 6000);
         // deep dwellers stay below the old floor line; everyone else roams the full column
-        f.targetY = DEEP_REQ[f.species] && tankDepth > 0
-          ? rnd(BASE_SAND + 4, SAND_Y - 8)
-          : rnd(14, SAND_Y - 14);
+        f.targetY = DEEP_REQ[f.species] && S.tankDepth > 0
+          ? rnd(BASE_SAND + 4, S.SAND_Y - 8)
+          : rnd(14, S.SAND_Y - 14);
         if (Math.random() < 0.35) f.dir *= -1;
       }
     }
 
     let sp = f.food ? f.speed * 2.4 : f.speed;
-    const inCombat = raid && raid.phase === "fight";
+    const inCombat = S.raid && S.raid.phase === "fight";
     const excited = f.food || inCombat || (threat && Math.abs(threat.x - f.x) < fleeR);
     if (threat && Math.abs(threat.x - f.x) < fleeR) sp = f.speed * 2.6;
     if (inCombat && f.aggro) sp = f.speed * 2.2;
@@ -2006,10 +2007,10 @@ function update(dt) {
     f.vx += (f.dir * sp * f.thrust - f.vx) * 0.04 * dt * 0.06;
     f.x += f.vx * dt * 0.06;
     // chasing fish dive much harder so they can keep up with sinking flakes
-    f.y += ((f.targetY - f.y) * (f.food ? 0.009 : 0.0009) + Math.sin(t * 0.004 + f.phase) * 0.004) * dt * 0.6;
+    f.y += ((f.targetY - f.y) * (f.food ? 0.009 : 0.0009) + Math.sin(S.t * 0.004 + f.phase) * 0.004) * dt * 0.6;
     if (f.x < 12) { f.x = 12; f.dir = 1; }
     if (f.x > W - 12) { f.x = W - 12; f.dir = -1; }
-    f.y = Math.max(DEEP_REQ[f.species] && tankDepth > 0 ? BASE_SAND + 3 : 10, Math.min(SAND_Y - 8, f.y));
+    f.y = Math.max(DEEP_REQ[f.species] && S.tankDepth > 0 ? BASE_SAND + 3 : 10, Math.min(S.SAND_Y - 8, f.y));
   }
 
   // free fish keep clear of the jail block
@@ -2034,8 +2035,8 @@ function update(dt) {
         const push = 0.06 * dt * 0.06;
         const sy = dy >= 0 ? 1 : -1;
         const sx = dx >= 0 ? 1 : -1;
-        a.y = Math.max(10, Math.min(SAND_Y - 8, a.y - sy * push));
-        b.y = Math.max(10, Math.min(SAND_Y - 8, b.y + sy * push));
+        a.y = Math.max(10, Math.min(S.SAND_Y - 8, a.y - sy * push));
+        b.y = Math.max(10, Math.min(S.SAND_Y - 8, b.y + sy * push));
         a.x = Math.max(10, Math.min(W - 10, a.x - sx * push * 0.6));
         b.x = Math.max(10, Math.min(W - 10, b.x + sx * push * 0.6));
       }
@@ -2076,35 +2077,35 @@ function update(dt) {
     c.y += c.vy * dt * 0.06;
     c.vy += 0.004 * dt * 0.06;
     c.life -= dt;
-    if (c.life <= 0 || c.y > SAND_Y - 1) {
+    if (c.life <= 0 || c.y > S.SAND_Y - 1) {
       coins.splice(i, 1);
       if (!c.ghost) addGold(1); // every coin lands in the wallet
     }
   }
   // bubbles
   if (Math.random() < 0.03 * dt * 0.06) {
-    bubbles.push({ x: rnd(4, W - 4), y: SAND_Y - 2, r: Math.random() < 0.7 ? 1 : 2, ph: rnd(0, 6) });
+    bubbles.push({ x: rnd(4, W - 4), y: S.SAND_Y - 2, r: Math.random() < 0.7 ? 1 : 2, ph: rnd(0, 6) });
   }
   if (Math.random() < 0.02 * dt * 0.06) {
-    bubbles.push({ x: 93 + rnd(-2, 2), y: SAND_Y - 9, r: 1, ph: rnd(0, 6) });
+    bubbles.push({ x: 93 + rnd(-2, 2), y: S.SAND_Y - 9, r: 1, ph: rnd(0, 6) });
   }
   for (let i = bubbles.length - 1; i >= 0; i--) {
     const b = bubbles[i];
     b.y -= (reduced ? 0.1 : 0.22) * dt * 0.06;
-    b.x += Math.sin(t * 0.01 + b.ph) * 0.05 * dt * 0.06;
+    b.x += Math.sin(S.t * 0.01 + b.ph) * 0.05 * dt * 0.06;
     if (b.y < 2) bubbles.splice(i, 1);
   }
   // flakes
   for (let i = flakes.length - 1; i >= 0; i--) {
     const fl = flakes[i];
     fl.life -= dt * 0.06;
-    if (fl.y < SAND_Y - 4) {
+    if (fl.y < S.SAND_Y - 4) {
       fl.y += fl.vy * dt * 0.06;
     } else if (!fl.grounded) {
       fl.grounded = true;
       fl.life = Math.min(fl.life, 700); // landed crumbs linger a while for stragglers and the crab
     }
-    fl.x += Math.sin(t * 0.008 + fl.y) * 0.02 * dt * 0.06;
+    fl.x += Math.sin(S.t * 0.008 + fl.y) * 0.02 * dt * 0.06;
     if (fl.life <= 0) flakes.splice(i, 1);
   }
 }
@@ -2123,7 +2124,7 @@ function render() {
   for (const e of eggs) drawEgg(e);
   for (const fl of flakes) {
     const col = FEED_DEF[fl.tier || 0].col;
-    px(fl.x, fl.y, Math.floor(t * 0.002 + fl.x) % 2 ? col[1] : col[0]);
+    px(fl.x, fl.y, Math.floor(S.t * 0.002 + fl.x) % 2 ? col[1] : col[0]);
   }
   drawCoins();
   for (const f of fishes) drawFish(f);
@@ -2145,10 +2146,10 @@ function render() {
   }
   for (const p of plants) if (p.front) drawPlant(p);
   drawJailFront();
-  // raid gloom settles over the whole tank, boss stays vivid on top
-  if (raidDark > 0.01) {
-    cx.fillStyle = `rgba(3, 9, 20, ${(raidDark * 0.42).toFixed(3)})`;
-    cx.fillRect(0, 0, W, H);
+  // S.raid gloom settles over the whole tank, boss stays vivid on top
+  if (S.raidDark > 0.01) {
+    cx.fillStyle = `rgba(3, 9, 20, ${(S.raidDark * 0.42).toFixed(3)})`;
+    cx.fillRect(0, 0, W, S.H);
   }
   drawRaid();
   for (const rg of rings) {
@@ -2163,13 +2164,13 @@ function render() {
 }
 
 // ---------- loop ----------
-let lastT = performance.now();
+S.lastT = performance.now();
 
 function loop(now) {
-  const rawDt = Math.min(50, Math.max(0, now - lastT));
+  const rawDt = Math.min(50, Math.max(0, now - S.lastT));
   // global pace: simulation runs at 45% speed for a calm, ornamental feel
   const dt = rawDt * 0.45;
-  lastT = now;
+  S.lastT = now;
   update(dt);
   render();
   updateNameTags();
@@ -2197,16 +2198,16 @@ setInterval(() => {
   }
 }, 5000);
 // reopen daily rations if the tank is left running past local midnight
-let shopDate = todayStr();
+S.shopDate = todayStr();
 setInterval(() => {
-  if (todayStr() !== shopDate) { shopDate = todayStr(); renderShop(); }
+  if (todayStr() !== S.shopDate) { S.shopDate = todayStr(); renderShop(); }
 }, 60000);
-if (save.frame && (save.frames.includes(save.frame) || save.frame === "")) applyFrame(save.frame);
+if (S.save.frame && (S.save.frames.includes(S.save.frame) || S.save.frame === "")) applyFrame(S.save.frame);
 // restore the saved tank; fall back to a fresh one
-let restored = false;
-if (Array.isArray(save.fish) && save.fish.length) {
-  for (const sf of save.fish) {
-    if (fishes.length >= CAP) break;
+S.restored = false;
+if (Array.isArray(S.save.fish) && S.save.fish.length) {
+  for (const sf of S.save.fish) {
+    if (fishes.length >= S.CAP) break;
     if (!SPECIES_DEF.some(d => d.key === sf.s)) continue;
     const f = makeFish(sf.s);
     if (sf.p >= 0 && FISH_PALETTES[sf.p]) { f.palIdx = sf.p; f.pal = FISH_PALETTES[sf.p]; }
@@ -2218,13 +2219,13 @@ if (Array.isArray(save.fish) && save.fish.length) {
     f.dietTier = FEED_DEF[sf.dt] ? sf.dt : 0;
     if (typeof sf.x === "number") f.x = Math.max(4, Math.min(W - 4, sf.x));
     if (typeof sf.y === "number" && !SAND_DWELLERS.includes(sf.s)) {
-      f.y = Math.max(10, Math.min(SAND_Y - 8, sf.y));
+      f.y = Math.max(10, Math.min(S.SAND_Y - 8, sf.y));
     }
     addFish(f);
-    restored = true;
+    S.restored = true;
   }
-  for (const se of save.eggs || []) {
-    if (fishes.length + eggs.length >= CAP) break;
+  for (const se of S.save.eggs || []) {
+    if (fishes.length + eggs.length >= S.CAP) break;
     const x = typeof se.x === "number" ? se.x : rnd(40, 140);
     const y = typeof se.y === "number" ? se.y : 8;
     const hatch = Math.max(3000, se.h || 15000);
@@ -2232,14 +2233,14 @@ if (Array.isArray(save.fish) && save.fish.length) {
       dropGradeEgg(se.g, x, y, hatch);
       continue;
     }
-    // legacy species-fixed egg from an old save
+    // legacy species-fixed egg from an old S.save
     const def = SPECIES_DEF.find(d => d.key === se.s);
     if (!def) continue;
     const pal = se.p >= 0 && FISH_PALETTES[se.p] ? FISH_PALETTES[se.p] : (def.pal || FISH_PALETTES[0]);
     eggs.push({ x, y, hatch, species: se.s, pal, palIdx: se.p });
   }
 }
-if (!restored) {
+if (!S.restored) {
   addFish(makeFish("crab"));   // ferris always ships
   addFish(makeFish("jelly"));
   addFish(makeFish("puffer"));
