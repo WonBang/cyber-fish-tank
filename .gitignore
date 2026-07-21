@@ -1,2 +1,4 @@
+node_modules/
+dist/
 macos/CyberFishTank.app/
 macos/CyberFishTank-v*.zip
