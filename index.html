@@ -787,6 +787,7 @@ const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [], hearts = []
 const LOVE_AT = 3; // meals before a fish trusts you enough to be named
 const CROWN_AT = 10; // meals before a fish earns its crown (sells +50%, breeds better eggs)
 const isCrowned = (f) => f.ate >= CROWN_AT;
+const CROWN_KEEP = 10 * 60000; // crown fades 10min after the last meal; 3 feeds win it back
 let t = 0, spawnedPids = new Set();
 let shark = null, sharkTimer = rnd(45000, 90000);
 let night = false;
@@ -943,7 +944,7 @@ let saveT = 0;
 function snapshotTank() {
   save.fish = fishes.map(f => ({
     s: f.species, p: f.palIdx, n: f.name, c: f.customName || "",
-    a: f.ate, x: Math.round(f.x), y: Math.round(f.y),
+    a: f.ate, la: f.lastAte || 0, x: Math.round(f.x), y: Math.round(f.y),
     st: Math.round(f.sat), dt: f.dietTier,
   }));
   save.eggs = eggs.map(e => ({
@@ -1683,6 +1684,7 @@ function raidWin() {
   for (const f of fishes) {
     hearts.push({ x: f.x, y: f.y - 5, life: rnd(900, 1600) });
     f.ate++;
+    f.lastAte = Date.now();
   }
 }
 
@@ -2475,14 +2477,14 @@ function claimFlake(f, range) {
 function eat(f, fl) {
   fl.life = 0;
   f.ate++;
+  f.lastAte = Date.now();
   f.sat = Math.min(100, f.sat + FEED_DEF[fl.tier || 0].sat);
   f.dietTier = fl.tier || 0;
   if (f.ate >= LOVE_AT) hearts.push({ x: f.x, y: f.y - 5, life: 1100 });
   if (f.ate === CROWN_AT) {
-    log(`${f.name}[${f.pid}] promoted to senior fish 👑`, "ok");
+    log(`${f.customName || KOR[f.species]} 왕관 획득 👑`);
     toast(`${f.customName || KOR[f.species]} 왕관 획득 👑 — 판매 +50%, 번식 강화`);
   }
-  else log(`${f.name}[${f.pid}] ate flake · exit 0`, "ok");
   f.food = null;
   f.retarget = 0;
   // still more food in the water? chain straight to the next bite
@@ -3023,6 +3025,19 @@ renderShop();
 renderDex();
 renderFeedBar();
 showToolbar(); // visible once on load so newcomers learn it exists
+// crowns fade when a senior fish goes unfed too long
+setInterval(() => {
+  const now = Date.now();
+  for (const f of fishes) {
+    if (!isCrowned(f)) continue;
+    if (now - (f.lastAte || now) > CROWN_KEEP) {
+      f.ate = CROWN_AT - 3;
+      f.lastAte = now;
+      toast(`${f.customName || KOR[f.species]} 왕관이 빛을 잃었어요 — 먹이 3번이면 되찾아요`);
+      log(`${f.customName || KOR[f.species]} 왕관 소멸`);
+    }
+  }
+}, 5000);
 // reopen daily rations if the tank is left running past local midnight
 let shopDate = todayStr();
 setInterval(() => {
@@ -3040,6 +3055,7 @@ if (Array.isArray(save.fish) && save.fish.length) {
     if (sf.n) f.name = sf.n;
     if (sf.c) f.customName = sf.c;
     f.ate = sf.a || 0;
+    f.lastAte = sf.la || Date.now(); // legacy saves get a fresh grace window
     f.sat = Math.max(0, Math.min(100, sf.st || 0));
     f.dietTier = FEED_DEF[sf.dt] ? sf.dt : 0;
     if (typeof sf.x === "number") f.x = Math.max(4, Math.min(W - 4, sf.x));
