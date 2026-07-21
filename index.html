@@ -173,6 +173,7 @@
     font: 11px "SF Mono", "Menlo", "Consolas", monospace;
     animation: tfade 3s forwards;
   }
+  .toast.long { animation-duration: 6.5s; }
   @keyframes tfade {
     0% { opacity: 0; transform: translateY(4px); }
     10% { opacity: 1; transform: none; }
@@ -266,6 +267,53 @@
     position: absolute; inset: 0; pointer-events: none;
     background: radial-gradient(ellipse 120% 100% at 50% 45%, transparent 55%, rgba(2,6,12,0.55) 100%);
   }
+  /* ---- widget mode (menubar app loads index.html#widget) ---- */
+  body.compact { padding: 0; display: block; }
+  .compact .app {
+    flex-direction: column;
+    gap: 0;
+    max-width: none;
+    height: 100vh;
+    position: relative;
+  }
+  .compact .frame {
+    order: 1;
+    flex: 1;
+    min-height: 0;
+    max-width: none;
+    width: auto;
+    padding: 4px;
+    border-radius: 10px;
+    margin: 4px 4px 0;
+  }
+  .compact .tankwrap { height: 100%; width: fit-content; max-width: 100%; margin: 0 auto; }
+  .compact canvas { width: auto; height: 100%; max-width: 100%; }
+  .compact .panel {
+    order: 2;
+    width: auto;
+    max-height: none;
+    border-radius: 12px 12px 0 0;
+  }
+  /* closed: only wallet + feedbar rows exist; open: overlay sheet over the tank */
+  .compact .tabs, .compact .tabbody, .compact #sellBtn { display: none; }
+  .compact .panel.open {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 10;
+    max-height: 78%;
+  }
+  .compact .panel.open .tabs { display: flex; }
+  .compact .panel.open .tabbody:not(.hidden) { display: block; }
+  .compact .panel.open #sellBtn { display: block; }
+  .compact .wallet { order: -3; cursor: pointer; }
+  .compact .wallet::after { content: "▴ 메뉴"; font-size: 10px; font-weight: 400; color: #7fa3c8; margin-left: 8px; }
+  .compact .panel.open .wallet::after { content: "▾ 닫기"; }
+  .compact .feedbar { order: -2; flex-wrap: nowrap; overflow-x: auto; }
+  .compact .feedbar button { flex: 0 1 auto; padding: 3px 8px; }
+  .compact .feedbar .feedtip { display: none; }
+  .compact .tabs { order: 0; }
+  .compact .hint { display: none; }
+  .compact .toasts { z-index: 20; }
 </style>
 </head>
 <body>
@@ -298,6 +346,8 @@
 <script>
 (() => {
 "use strict";
+// widget mode: menubar app loads index.html#widget (query also accepted)
+if (/[?#&]widget/.test(location.search + location.hash)) document.body.classList.add("compact");
 // deep-sea expansion: each purchased layer extends the tank downward
 const W = 192, BASE_H = 120, BASE_SAND = 108, LAYER_H = 15, MAX_DEPTH = 2;
 let tankDepth = 0;
@@ -676,7 +726,7 @@ const SPECIES_DEF = [
   { key: "giantsquid", w: 0, name: "inky",  pal: { b: "#c25a4a", d: "#8a3a2e", f: "#d98a70" } },
 ];
 // deep-sea species and the tank depth required to hatch (and house) them
-const DEEP_REQ = { hatchet: 1, angler: 1, gulper: 2, oarfish: 2, giantsquid: 2 };
+const DEEP_REQ = { hatchet: 1, angler: 1, gulper: 2, oarfish: 2, giantsquid: 2, bluewhale: 1, beluga: 1 };
 
 // ---------- world state ----------
 const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [], hearts = [], rings = [];
@@ -814,12 +864,17 @@ const plants = [
 ].map(([ty, x, h, fr]) => makePlant(ty, x, h, fr));
 
 // ---------- log ----------
-function log() {}
+function log(msg) {
+  if (!Array.isArray(save.log)) save.log = [];
+  save.log.push({ ts: Date.now(), m: String(msg) });
+  if (save.log.length > 50) save.log.splice(0, save.log.length - 50);
+  persist();
+}
 
 // ---------- economy / shop / dex ----------
 let CAP = 30 + 8 * tankDepth; // tank capacity (fish + pending eggs), +8 per deep-sea layer
 const SAVE_KEY = "cyber-fish-tank-save";
-let save = { gold: 0, frames: [], frame: "", dex: {}, feed: { basic: 30, prime: 0, golden: 0 }, ration: { date: "", basic: 0, prime: 0 } };
+let save = { gold: 150, frames: [], frame: "", dex: {}, feed: { basic: 30, prime: 0, golden: 0 }, ration: { date: "", basic: 0, prime: 0 } };
 try {
   const s = JSON.parse(localStorage.getItem(SAVE_KEY));
   if (s && typeof s === "object") save = Object.assign(save, s);
@@ -893,16 +948,16 @@ function coinImg(size) {
   return img;
 }
 
-function toast(msg) {
+function toast(msg, long) {
   const d = document.createElement("div");
-  d.className = "toast";
+  d.className = "toast" + (long ? " long" : "");
   const parts = String(msg).split("🪙");
   parts.forEach((p, i) => {
     d.append(p);
     if (i < parts.length - 1) d.appendChild(coinImg(11));
   });
   toastsEl.appendChild(d);
-  setTimeout(() => d.remove(), 3000);
+  setTimeout(() => d.remove(), long ? 6500 : 3000);
   while (toastsEl.children.length > 4) toastsEl.firstChild.remove();
 }
 
@@ -1291,6 +1346,18 @@ function eggIcon(grade, size) {
 
 function renderLog() {
   logBody.innerHTML = "";
+  if (Array.isArray(save.log) && save.log.length) {
+    const es = document.createElement("div");
+    es.className = "sect";
+    es.textContent = "📋 이벤트 기록";
+    logBody.appendChild(es);
+    for (const ev of save.log.slice(-20).reverse()) {
+      const d = document.createElement("div");
+      d.className = "odds";
+      d.textContent = ev.m;
+      logBody.appendChild(d);
+    }
+  }
   const s = document.createElement("div");
   s.className = "sect";
   s.textContent = `🐣 부화 기록 (최근 ${Math.min(save.hatchLog.length, 60)}건)`;
@@ -1324,16 +1391,26 @@ sellBtn.addEventListener("click", () => {
   sellMode = !sellMode;
   sellBtn.classList.toggle("on", sellMode);
   hintEl.textContent = sellMode ? "물고기를 클릭하면 판매됩니다" : "";
+  toast(sellMode ? "판매 모드: 물고기 클릭 = 판매" : "판매 모드 해제");
 });
 
+let sellConfirm = null; // named/crowned fish need a second click within 3s
 function sellFish(f) {
   if (f.species !== "crab" && nonCrabCount() <= MIN_FISH) { toast("어항 최소 인원 — 더 팔 수 없어요"); return; }
+  if ((f.customName || isCrowned(f)) &&
+      !(sellConfirm && sellConfirm.f === f && performance.now() - sellConfirm.t < 3000)) {
+    sellConfirm = { f, t: performance.now() };
+    toast(`${f.customName || KOR[f.species]} 판매하려면 3초 안에 한 번 더 클릭`);
+    return;
+  }
+  sellConfirm = null;
   // crowned veterans fetch a premium — feeding them was an investment
   const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
   dropFood(f);
   fishes.splice(fishes.indexOf(f), 1);
   addGold(price);
   toast(`${f.customName || KOR[f.species]} 판매 +${price}🪙`);
+  log(`${f.customName || KOR[f.species]} 판매 +${price}골드`);
   for (let k = 0; k < 4; k++) {
     coins.push({ x: f.x + rnd(-4, 4), y: f.y + rnd(-3, 3), vy: -rnd(0.1, 0.3), life: rnd(500, 900), ghost: true });
   }
@@ -1359,6 +1436,19 @@ function switchTab(which) {
 tabShop.addEventListener("click", () => switchTab("shop"));
 tabDex.addEventListener("click", () => switchTab("dex"));
 tabLog.addEventListener("click", () => switchTab("log"));
+
+// widget mode: panel becomes a slide-up drawer over the tank
+if (document.body.classList.contains("compact")) {
+  const panelEl = document.querySelector(".panel");
+  const walletEl = document.getElementById("wallet");
+  walletEl.addEventListener("click", () => panelEl.classList.toggle("open"));
+  [tabShop, tabDex, tabLog].forEach((b) =>
+    b.addEventListener("click", () => panelEl.classList.add("open")));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") panelEl.classList.remove("open");
+  });
+  cv.addEventListener("mousedown", () => panelEl.classList.remove("open"));
+}
 
 // ---------- actions ----------
 function renderFeedBar() {
@@ -1603,7 +1693,7 @@ function applyNightByClock() {
 applyNightByClock();
 setInterval(applyNightByClock, 60000);
 function openChest() {
-  if (CHEST.cooldown > 0) { log("chest: locked (retry after cooldown)", "warn"); return; }
+  if (CHEST.cooldown > 0) { return; }
   CHEST.openT = 3000;
   CHEST.cooldown = 12000;
   const loot = ri(3, 9);
@@ -1611,7 +1701,8 @@ function openChest() {
     coins.push({ x: CHEST.x + 6 + rnd(-3, 3), y: CHEST.y, vy: -rnd(0.15, 0.35), life: rnd(600, 1100) });
   }
   for (let i = 0; i < 5; i++) bubbles.push({ x: CHEST.x + 6 + rnd(-4, 4), y: CHEST.y, r: 1, ph: rnd(0, 6) });
-  log(`loot: ${loot} gold coins (unused variables)`, "ok");
+  toast(`보물상자 +${loot}🪙`);
+  log(`보물상자에서 ${loot}골드 획득`);
 }
 
 // ---------- naming (affection) ----------
@@ -1688,7 +1779,7 @@ function imprison(f) {
   if (slot === -1) return false; // jail full
   JAIL.slots[slot] = f;
   f.jail = { slot, total: 0, sentence: 0 };
-  f.jail.total = f.jail.sentence = rnd(9000, 13000);
+  f.jail.total = f.jail.sentence = rnd(60000, 120000);
   f.knock = 0;
   dropFood(f);
   return true;
@@ -2394,9 +2485,10 @@ function update(dt) {
         hearts.push({ x: JAIL.right + 4, y: floorY - 8, life: 1000 });
         for (let k = 0; k < 5; k++) bubbles.push({ x: JAIL.right + 2, y: floorY - 4, r: 1, ph: rnd(0, 6) });
         // the treadmill powers the tank generator — labor pays out on release
-        const wage = ri(50, 100);
+        const wage = ri(40, 80);
         addGold(wage);
         toast(`${f.customName || KOR[f.species]} 노역 완료 +${wage}🪙`);
+        log(`${f.customName || KOR[f.species]} 노역 완료 +${wage}골드`);
         for (let k = 0; k < 3; k++) {
           coins.push({ x: JAIL.right + 4 + rnd(-2, 2), y: floorY - 6, vy: -rnd(0.15, 0.3), life: rnd(500, 900), ghost: true });
         }
@@ -2792,6 +2884,13 @@ if (!restored) {
     let nf; do { nf = makeFish(); } while (nf.species === "crab");
     addFish(nf);
   }
+  // first-run guide: introduce the core loop one toast at a time
+  [
+    "🍞 물을 클릭하면 먹이를 줄 수 있어요",
+    "📦 보물상자를 클릭하면 골드가 나와요",
+    "💗 하트가 뜬 물고기를 클릭해 이름을 지어주세요",
+    "🚔 물고기를 왼쪽 아래 감옥에 드래그하면 노역으로 골드를 벌어요",
+  ].forEach((m, i) => setTimeout(() => toast(m, true), 1500 + i * 3500));
 }
 persistNow();
 log("initializing tank driver… ok");
