@@ -2386,7 +2386,7 @@ function drawJailBack() {
     const bx = 6, bw = 14;
     const shift = Math.floor(t * 0.02) % 4;
     for (let i = 0; i < bw; i++) {
-      cx.fillStyle = ((i + 4 - shift) % 4 < 2) ? "#4a5668" : "#2f3b4e";
+      cx.fillStyle = ((i + shift) % 4 < 2) ? "#4a5668" : "#2f3b4e"; // belt runs opposite the fish (leftward)
       cx.fillRect(bx + i, fy - 1, 1, 1);
     }
     cx.fillStyle = "#141b29"; cx.fillRect(bx, fy, bw, 1);
