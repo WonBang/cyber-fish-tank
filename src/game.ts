@@ -4,6 +4,7 @@ import { FISH_PALETTES, MIN_FISH, NAMES } from "./palette";
 import { SPRITES, JELLY_FRAMES, CRAB_FRAMES, SHARK_SPRITE, SHARK_PAL, MANTIS_SPRITE, MANTIS_PAL, SPECIES_DEF, DEEP_REQ, EGG_ROWS, EGG_PALS, COIN_ROWS, COIN_COLORS } from "./sprites";
 import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES } from "./economy";
 import { W, BASE_H, BASE_SAND, LAYER_H, MAX_DEPTH, cv, cx, reduced } from "./canvas";
+import { rnd, ri, todayStr, fmtWhen } from "./utils";
 
 // #widget: the macOS menubar app loads this page with a hash to get the compact layout
 if (location.hash === "#widget") document.body.classList.add("compact");
@@ -37,9 +38,6 @@ JAIL.slots = [null, null, null]; // one prisoner per treadmill level
 const MANTIS = { cool: 0, show: 0, dir: 1 };
 const SAND_DWELLERS = ["crab", "starfish"];
 const SLOW_GIANTS = ["whale", "beluga", "mola", "bluewhale", "giantsquid"]; // slow drifters, too big for the jail door
-
-function rnd(a, b) { return a + Math.random() * (b - a); }
-function ri(a, b) { return Math.floor(rnd(a, b + 1)); }
 
 function pickSpecies() {
   const total = SPECIES_DEF.reduce((s, d) => s + d.w, 0);
@@ -277,7 +275,6 @@ function discover(species, palIdx) {
 function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
 
 // feed tiers: pure buff — no starvation penalty, satiety just gates breeding
-function todayStr() { return new Date().toLocaleDateString("en-CA"); }
 function rationLeft(item) {
   if (S.save.ration.date !== todayStr()) { S.save.ration = { date: todayStr(), basic: 0, prime: 0 }; }
   return item.daily - (S.save.ration[item.key] || 0);
@@ -605,10 +602,6 @@ function eggIcon(grade, size) {
   return c;
 }
 
-function fmtWhen(ts) {
-  const d = new Date(ts);
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
 function renderLog() {
   logBody.innerHTML = "";
   if (Array.isArray(S.save.log) && S.save.log.length) {
