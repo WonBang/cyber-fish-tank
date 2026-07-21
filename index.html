@@ -193,6 +193,8 @@
     cursor: pointer;
   }
   .odds button:hover { color: #cfe3f5; }
+  .evrow { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .evrow .evwhen { flex: none; color: #4e688c; font-size: 9px; }
   .oddsrow { display: flex; align-items: center; gap: 5px; padding: 1px 0; font-size: 10px; }
   .oddsrow .dot { width: 6px; height: 6px; border-radius: 2px; flex: none; }
   .oddsrow .onm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -955,6 +957,11 @@ if (typeof save.dex !== "object" || !save.dex) save.dex = {};
 if (typeof save.feed !== "object" || !save.feed) save.feed = { basic: 30, prime: 0, golden: 0 };
 if (typeof save.ration !== "object" || !save.ration) save.ration = { date: "", basic: 0, prime: 0 };
 if (!Array.isArray(save.hatchLog)) save.hatchLog = [];
+// scrub old english debug-flavor entries from existing saves
+if (Array.isArray(save.log)) {
+  save.log = save.log.filter((ev) => ev && typeof ev.m === "string" &&
+    !/tank driver|pump daemon|processes attached|sudo shark|EBUSY|stack overflow|ate flake|exit 0|\[\d+\]/.test(ev.m));
+}
 save.depth = Math.min(MAX_DEPTH, Math.max(0, (save.depth) | 0));
 let saveT = 0;
 function snapshotTank() {
@@ -1057,6 +1064,7 @@ function discover(species, palIdx) {
     const bonus = DEX_BONUS[species] || 30;
     addGold(bonus);
     toast(`도감 등록: ${KOR[species]} +${bonus}🪙`);
+    log(`📖 도감 등록: ${KOR[species]} +${bonus}골드`);
   }
   else if (VARIED.includes(species)) { addGold(5); toast(`새 색상 발견: ${KOR[species]} +5🪙`); }
   persist();
@@ -1457,6 +1465,10 @@ function eggIcon(grade, size) {
   return c;
 }
 
+function fmtWhen(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 function renderLog() {
   logBody.innerHTML = "";
   if (Array.isArray(save.log) && save.log.length) {
@@ -1466,8 +1478,13 @@ function renderLog() {
     logBody.appendChild(es);
     for (const ev of save.log.slice(-20).reverse()) {
       const d = document.createElement("div");
-      d.className = "odds";
-      d.textContent = ev.m;
+      d.className = "odds evrow";
+      const msg = document.createElement("span");
+      msg.textContent = ev.m;
+      const when = document.createElement("span");
+      when.className = "evwhen";
+      when.textContent = ev.ts ? fmtWhen(ev.ts) : "";
+      d.append(msg, when);
       logBody.appendChild(d);
     }
   }
@@ -1491,8 +1508,7 @@ function renderLog() {
     nm.textContent = `${h.g >= 0 ? GRADE_NAMES[h.g] : "알"} → ${KOR[h.s] || h.s}`;
     const when = document.createElement("span");
     when.className = "pr";
-    const d = new Date(h.ts);
-    when.textContent = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    when.textContent = fmtWhen(h.ts);
     row.append(nm, when);
     logBody.appendChild(row);
   }
@@ -1626,10 +1642,10 @@ function feed(px) {
 function nonCrabCount() { return fishes.filter(f => f.species !== "crab").length; }
 
 function summonShark() {
-  if (shark) { log("shark: already in tank (EBUSY)", "warn"); return; }
+  if (shark) return;
   const dir = Math.random() < 0.5 ? 1 : -1;
   shark = { x: dir === 1 ? -30 : W + 30, y: rnd(30, 70), dir };
-  log("[WARN] unauthorized sudo shark detected — all fish scattering", "warn");
+  log("🦈 거대 상어 출현 — 물고기들이 흩어져요");
 }
 
 // ---------- raid ----------
@@ -1698,6 +1714,7 @@ function raidWin() {
   // one bounty egg drifts down — 35% legendary
   dropGradeEgg(Math.random() < 0.35 ? 2 : 0, rnd(40, 150), 26, rnd(20000, 32000));
   addGold(50); // raid victory bounty
+  log("🦈 레이드 승리 — 보상 알과 +50골드");
   // the whole tank celebrates
   for (const f of fishes) {
     hearts.push({ x: f.x, y: f.y - 5, life: rnd(900, 1600) });
@@ -1715,6 +1732,7 @@ function raidFail() {
     if (d < bd) { bd = d; victim = f; }
   }
   if (victim) {
+    log(`🦈 레이드 실패 — ${victim.customName || KOR[victim.species]}을(를) 잃었어요`);
     dropFood(victim);
     fishes.splice(fishes.indexOf(victim), 1);
     for (let k = 0; k < 10; k++) {
@@ -2785,10 +2803,8 @@ function update(dt) {
     if (f.species === "puffer") {
       f.puffT -= dt;
       const sharkNear = threat && Math.abs(threat.x - f.x) < 55;
-      const wasInflated = f.inflated;
       f.inflated = sharkNear || f.puffT < 3000;
       if (f.puffT < 0) f.puffT = rnd(12000, 26000);
-      if (f.inflated && !wasInflated) log(`${f.name}[${f.pid}] inflated — stack overflow`, "warn");
     }
 
     // raid combat: the whole school mobs the boss in hit-and-run waves
@@ -3116,9 +3132,6 @@ if (!restored) {
   ].forEach((m, i) => setTimeout(() => toast(m, true), 1500 + i * 3500));
 }
 persistNow();
-log("initializing tank driver… ok");
-log("water pump daemon started (pid 42)", "ok");
-log(`${fishes.length} fish processes attached`, "ok");
 requestAnimationFrame(loop);
 
 })();
