@@ -1,3 +1,8 @@
+// @ts-nocheck — mechanical port from the single-file build; typing is a follow-up pass
+import { FISH_PALETTES, MIN_FISH, NAMES } from "./palette";
+import { SPRITES, JELLY_FRAMES, CRAB_FRAMES, SHARK_SPRITE, SHARK_PAL, MANTIS_SPRITE, MANTIS_PAL, SPECIES_DEF, DEEP_REQ, EGG_ROWS, EGG_PALS, COIN_ROWS, COIN_COLORS } from "./sprites";
+import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES } from "./economy";
+
 // #widget: the macOS menubar app loads this page with a hash to get the compact layout
 if (location.hash === "#widget") document.body.classList.add("compact");
 // deep-sea expansion: each purchased layer extends the tank downward
@@ -14,371 +19,11 @@ const cx = cv.getContext("2d");
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ---------- palette ----------
-const FISH_PALETTES = [
-  { b: "#3dff8b", d: "#1fae5c", f: "#17d96b" },  // phosphor green
-  { b: "#46d8ff", d: "#1f8fb8", f: "#7ae6ff" },  // cyan
-  { b: "#ffb454", d: "#c47816", f: "#ffd27a" },  // amber
-  { b: "#ff6b9d", d: "#c23f6e", f: "#ff9dc0" },  // coral pink
-  { b: "#b18cff", d: "#7a5cc4", f: "#d0baff" },  // violet
-  { b: "#ff5c5c", d: "#b83030", f: "#ffb454" },  // red, amber fin
-  { b: "#38e8c8", d: "#1e9e86", f: "#a0ffe8" },  // seafoam
-  { b: "#c8f04a", d: "#8aab24", f: "#e8ff9a" },  // lime
-  { b: "#ff8c42", d: "#c2591c", f: "#46d8ff" },  // clownfish orange, cyan fin
-  { b: "#7aa8ff", d: "#4a6fc2", f: "#ff6b9d" },  // ice blue, pink fin
-  { b: "#f06ee6", d: "#b03aa8", f: "#7ae6ff" },  // magenta, cyan fin
-  { b: "#e8e8f0", d: "#9a9ab0", f: "#ff5c5c" },  // koi silver, red fin
-];
-const MIN_FISH = 7; // minimum non-crab population
-const NAMES = ["node","vim","rustc","gcc","cargo","docker","tmux","zsh","git","deno","curl","grep","nvim","make","ssh","jq"];
 
 // ---------- sprites (facing right, tail = f on left) ----------
-const SPRITES = {
-  tetra: [
-    "f..bbbb..",
-    "ff.bbbbb.",
-    "ffbbbbeb.",
-    "ff.bbbbb.",
-    "f..bbbb..",
-  ],
-  guppy: [
-    "ff....bbb...",
-    "fff..bbbbbb.",
-    ".fffbbbbbeb.",
-    ".fffbbbbbbbb",
-    "fff..bbbbbb.",
-    "ff....bbb...",
-  ],
-  angel: [
-    "....d.....",
-    "...ddd....",
-    "f..bbbb...",
-    "ff.bbbbeb.",
-    "ffbbbbbbbb",
-    "ff.bbbbbb.",
-    "f..bbbb...",
-    "...ddd....",
-    "....d.....",
-  ],
-  puffer: [
-    "f...bbbb..",
-    "ff.bbbbbb.",
-    "ffbbbbbeb.",
-    "ffbbbbbbbb",
-    "ffbbbbbbb.",
-    "ff.bbbbbb.",
-    "f...bbbb..",
-  ],
-  pufferBig: [
-    "....d.d.d....",
-    "..d.bbbbb.d..",
-    "...bbbbbbb...",
-    ".d.bbbbbeb.d.",
-    "f.bbbbbbbbb..",
-    "fdbbbbbbbbbd.",
-    "f.bbbbbbbbb..",
-    ".d.bbbbbbb.d.",
-    "...bbbbbbb...",
-    "..d.bbbbb.d..",
-    "....d.d.d....",
-  ],
-  starfish: [
-    "...b...",
-    "..bbb..",
-    "bbbdbbb",
-    ".bbdbb.",
-    "..bbb..",
-    ".bb.bb.",
-    "bb...bb",
-  ],
-  seahorse: [
-    "....bb..",
-    "...bbbb.",
-    "...beb..",
-    "....bb..",
-    "f.bbbb..",
-    "fbbbb...",
-    "fbbb....",
-    ".bbb....",
-    "..bb..b.",
-    "...bbb..",
-  ],
-  whale: [
-    "f.....bbbbbbbbbb......",
-    "ff..bbbbbbbbbbbbbb....",
-    ".ffbbbbbbbbbbbbbbbbb..",
-    ".fbbbbbbbbbbbbbbbbebb.",
-    "ffbbbbbbbbbbbbbbbbbbbb",
-    ".fbbbbbbbbbbbbbbbbbbb.",
-    "..bbbbbbbbbbbbbbbbbb..",
-    "...dddddddddddddd.....",
-    "....d..d..d..d........",
-  ],
-  clown: [
-    "f..bdbbd..",
-    "ff.bdbbdb.",
-    "ffbbdbbdeb",
-    "ff.bdbbdb.",
-    "f..bdbbd..",
-  ],
-  sword: [
-    "f...bbbb.......",
-    "ff.bbbbbbb.....",
-    "ffbbbbbbbebdddd",
-    "ff.bbbbbbb.....",
-    "f...bbbb.......",
-  ],
-  beluga: [
-    "f.......bbbbbbbbb.........",
-    "ff....bbbbbbbbbbbbbb......",
-    ".ff.bbbbbbbbbbbbbbbbbb....",
-    ".ffbbbbbbbbbbbbbbbbbbbbb..",
-    ".fbbbbbbbbbbbbbbbbbbbbeb..",
-    "ffbbbbbbbbbbbbbbbbbbbbbbd.",
-    ".fbbbbbbbbbbbbbbbbbbbbbb..",
-    "..bbbbbbbbbbbbbbbbbbbb....",
-    "...bbbbbbbbbbbbbbbb.......",
-    ".....ddddddddd............",
-  ],
-  goldfish: [
-    "ff...bbbb..",
-    "fff.bbbbbb.",
-    ".ffbbbbbbeb",
-    "fffbbbbbbbb",
-    ".ffbbbbbbb.",
-    "fff.bbbbbb.",
-    "ff...bbbb..",
-  ],
-  zebra: [
-    "f..dddddd.",
-    "ffbbbbbbeb",
-    "f..dddddd.",
-    "ffbbbbbbbb",
-    "f..dddddd.",
-  ],
-  molly: [
-    "f...bbb..",
-    "ff.bbbbb.",
-    "ffbbbbbeb",
-    "ff.bbbbb.",
-    "f...bbb..",
-  ],
-  betta: [
-    ".ff..fff....",
-    "fff.bbbbbb..",
-    "ffffbbbbbeb.",
-    "fffbbbbbbbb.",
-    "ffffbbbbbb..",
-    "fff.bbbbbb..",
-    ".ff..fff....",
-  ],
-  discus: [
-    "....ddd....",
-    "..dbbbbbd..",
-    ".dbbbbbbbd.",
-    "fdbbbbbbeb.",
-    "ffbbbbbbbbd",
-    "fdbbbbbbbb.",
-    ".dbbbbbbbd.",
-    "..dbbbbbd..",
-    "....ddd....",
-  ],
-  bluetang: [
-    "f....bbbb...",
-    "ff.bbbbbbbb.",
-    "fffbbbbbbeb.",
-    "fffbbbbbbbb.",
-    "ff.bbbbbbb..",
-    "f....bbbb...",
-  ],
-  arowana: [
-    "f...bbbbbbbbb.....",
-    "ffbbbbbbbbbbbbbb..",
-    "ffbbbbbbbbbbbbbeb.",
-    "ffbbbbbbbbbbbbbb..",
-    "f...bbbbbbbbb.....",
-  ],
-  coelacanth: [
-    "f....bbbbbbbb.....",
-    "ff.bbbbbbbbbbbb...",
-    "ffbbbbbbbbbbbbbb..",
-    "ffbbbbdbbdbbbbeb..",
-    "ffbbbbbbbbbbbbbbb.",
-    "ffbbbbdbbdbbbbbb..",
-    "ff.bbbbbbbbbbbb...",
-    "f...f..bbbbbf.....",
-  ],
-  hatchet: [
-    "....bb.b.",
-    "f.bbbbbb.",
-    "ffbbbbbeb",
-    "f.bbbbbb.",
-    "..bbbb...",
-    "...bb....",
-    "....b....",
-  ],
-  angler: [
-    "....c.....",
-    "....d.....",
-    "..bbbbb...",
-    ".bbbbbbeb.",
-    "fbbbbbbbbb",
-    ".bbwwwbb..",
-    "..bbbbb...",
-  ],
-  gulper: [
-    "f............bbb..",
-    "ff....bbbbbbbbbbb.",
-    "ffbbbbbbbbbbbbbbeb",
-    "ff....bbbbbbwwwww.",
-    "f............bbb..",
-  ],
-  oarfish: [
-    ".d.d.d.d.d.d.d.d.d.d..",
-    "f.bbbbbbbbbbbbbbbbbb..",
-    "ffbbbbbbbbbbbbbbbbbeb.",
-    "f.bbbbbbbbbbbbbbbbbb..",
-  ],
-  bluewhale: [
-    "f...........bbbbbbbbbb........",
-    "ff......bbbbbbbbbbbbbbbbbb....",
-    ".ff..bbbbbbbbbbbbbbbbbbbbbbb..",
-    ".ffbbbbbbbbbbbbbbbbbbbbbbbbeb.",
-    "ffbbbbbbbbbbbbbbbbbbbbbbbbbbb.",
-    ".fbbbbbbbbbbbbbbbbbbbbbbbbbbbd",
-    "..bbbbbbbbbbbbbbbbbbbbbbbbbb..",
-    "...bbbbbbbbbbbbbbbbbbbbbb.....",
-    "....dddddddddddddddddd........",
-    ".....d...d...d...d............",
-  ],
-  giantsquid: [
-    "....bbbb......",
-    "...bbbbbb.....",
-    "..bbbbbbbb....",
-    "..bbbbbbbb....",
-    "..bebbbbeb....",
-    "..bbbbbbbb....",
-    "..f.f..f.f....",
-    "..f.f..f.f....",
-    ".f..f..f..f...",
-    ".f..f..f..f...",
-    "f...f..f...f..",
-    "f...f..f...f..",
-  ],
-  mola: [
-    ".....dd.......",
-    "...dbbbd......",
-    "..dbbbbbd.....",
-    ".dbbbbbbbbd...",
-    "fdbbbbbbbbeb..",
-    "ffbbbbbbbbbbd.",
-    "ffbbbbbbbbbbd.",
-    "fdbbbbbbbbbb..",
-    ".dbbbbbbbbd...",
-    "..dbbbbbd.....",
-    "...dbbbd......",
-    ".....dd.......",
-  ],
-};
-const JELLY_FRAMES = [
-  [
-    "..bbbbb..",
-    ".bbbbbbb.",
-    ".bebbbeb.",
-    ".bbbbbbb.",
-    "..f.f.f..",
-    "..f.f.f..",
-    ".f..f..f.",
-  ],
-  [
-    "..bbbbb..",
-    ".bbbbbbb.",
-    ".bebbbeb.",
-    ".bbbbbbb.",
-    "..f.f.f..",
-    ".f..f..f.",
-    "..f.f.f..",
-  ],
-];
-const CRAB_FRAMES = [
-  [
-    ".e.......e.",
-    ".b.......b.",
-    "..bbbbbbb..",
-    ".bbbbbbbbb.",
-    "f.bbbbbbb.f",
-    ".f.b.b.b.f.",
-    "..d..d..d..",
-  ],
-  [
-    ".e.......e.",
-    ".b.......b.",
-    "..bbbbbbb..",
-    ".bbbbbbbbb.",
-    "f.bbbbbbb.f",
-    ".f.b.b.b.f.",
-    ".d..d..d...",
-  ],
-];
-const SHARK_SPRITE = [
-  "..........dd..............",
-  ".........dddd.............",
-  "d.......bbbbbbbb..........",
-  "dd....bbbbbbbbbbbbb.......",
-  "ddd.bbbbbbbbbbbbbbbbbeb...",
-  "ddbbbbbbbbbbbbbbbbbbbbbbww",
-  "ddd.bbbbbbbbbbbbbbbbbbb...",
-  "dd....bbbbbbbbbbbbbb......",
-  "d.......bbbdd.............",
-  "...........dd.............",
-];
-const SHARK_PAL = { b: "#5a7186", d: "#3c4f61", f: "#3c4f61" };
-const MANTIS_SPRITE = [
-  "...........e..e.",
-  "...........b..b.",
-  "....bbbbbbbbbb..",
-  "..bbbdbbdbbdbbb.",
-  ".bbbbdbbdbbdbbc.",
-  "dbbbbbbbbbbbbff.",
-  "db...b.b.b..fff.",
-  ".d..........ff..",
-  "............f...",
-];
-const MANTIS_PAL = { b: "#2fbf68", d: "#1e9e86", f: "#ff5c5c" };
 
 // species table: weight + fixed identity for specials
-const SPECIES_DEF = [
-  { key: "tetra",  w: 22 },
-  { key: "guppy",  w: 22 },
-  { key: "angel",  w: 16 },
-  { key: "puffer", w: 14, name: "puffy",    pal: { b: "#c8b45a", d: "#8a7a2e", f: "#e0d07a" } },
-  { key: "jelly",  w: 10, name: "jellyfin", pal: { b: "#b18cff", d: "#7a5cc4", f: "#8fb8ff" } },
-  { key: "crab",   w: 8,  name: "ferris",   pal: { b: "#ff7043", d: "#c24a20", f: "#ff9a70" } },
-  { key: "whale",  w: 5,  name: "moby",     pal: { b: "#5f8fd4", d: "#3a5e96", f: "#7fb0ea" } },
-  { key: "golden", w: 4,  name: "sudo",     pal: { b: "#ffd54a", d: "#c79a1e", f: "#ffe89a" } },
-  { key: "starfish", w: 5, name: "star",    pal: { b: "#ff8a5c", d: "#c25a30", f: "#ff8a5c" } },
-  { key: "seahorse", w: 6, name: "pony" },
-  { key: "clown",  w: 12, name: "nemo",     pal: { b: "#ff8c42", d: "#f5f5f5", f: "#e0561e" } },
-  { key: "sword",  w: 5,  name: "marlin",   pal: { b: "#4f7fae", d: "#2e5480", f: "#7fa8d0" } },
-  { key: "beluga", w: 2,  name: "bora",     pal: { b: "#e9f2f8", d: "#b9c9d8", f: "#d3e2ec" } },
-  { key: "goldfish", w: 14, name: "bboong", pal: { b: "#ff9a3c", d: "#d96a10", f: "#ffb85e" } },
-  { key: "zebra",  w: 10, name: "dash",     pal: { b: "#e8eef4", d: "#4a6ab8", f: "#c8d4e4" } },
-  { key: "molly",  w: 8,  name: "mole",     pal: { b: "#454c5a", d: "#22262e", f: "#5c6577" } },
-  { key: "betta",  w: 5,  name: "ruby",     pal: { b: "#c23a6e", d: "#7a1f4a", f: "#7a5cc4" } },
-  { key: "discus", w: 4,  name: "disco",    pal: { b: "#e0853c", d: "#8a4a1e", f: "#c96a2e" } },
-  { key: "bluetang", w: 4, name: "tang",    pal: { b: "#2e5fd4", d: "#16307a", f: "#ffd54a" } },
-  { key: "arowana", w: 1.5, name: "ryong",  pal: { b: "#d4823c", d: "#8a3a1e", f: "#ffb44a" } },
-  { key: "coelacanth", w: 1, name: "fossil", pal: { b: "#5a6e8c", d: "#8ea2c0", f: "#43536e" } },
-  { key: "mola",   w: 1,  name: "mola",     pal: { b: "#9aa8b8", d: "#5f6e80", f: "#7a8a9c" } },
-  // deep-sea dwellers: never spawn naturally (w 0), egg-only once their layer is open
-  { key: "bluewhale", w: 0, name: "bloo",   pal: { b: "#4a7ab8", d: "#2e4f80", f: "#6f9cd4" } },
-  { key: "hatchet", w: 0, name: "axel",     pal: { b: "#c8d8e8", d: "#8aa0b8", f: "#a8bcd0" } },
-  { key: "angler",  w: 0, name: "lumen",    pal: { b: "#3a4456", d: "#262e3e", f: "#2a3242" } },
-  { key: "gulper",  w: 0, name: "gulp",     pal: { b: "#2e3646", d: "#1e2430", f: "#3e4a5e" } },
-  { key: "oarfish", w: 0, name: "ribbon",   pal: { b: "#dde6f0", d: "#ff5c5c", f: "#ff8a8a" } },
-  { key: "giantsquid", w: 0, name: "inky",  pal: { b: "#c25a4a", d: "#8a3a2e", f: "#d98a70" } },
-];
 // deep-sea species and the tank depth required to hatch (and house) them
-const DEEP_REQ = { hatchet: 1, angler: 1, gulper: 2, oarfish: 2, giantsquid: 2, bluewhale: 1, beluga: 1 };
 
 // ---------- world state ----------
 const fishes = [], bubbles = [], flakes = [], coins = [], eggs = [], hearts = [], rings = [];
@@ -622,17 +267,6 @@ function toast(msg, long) {
   while (toastsEl.children.length > 4) toastsEl.firstChild.remove();
 }
 
-const KOR = {
-  tetra: "테트라", guppy: "구피", angel: "엔젤피시", puffer: "복어", jelly: "해파리",
-  crab: "게", whale: "고래", golden: "황금 물고기", starfish: "불가사리", seahorse: "해마",
-  clown: "흰동가리", sword: "황새치", beluga: "벨루가",
-  goldfish: "금붕어", zebra: "제브라다니오", molly: "몰리",
-  betta: "베타", discus: "디스커스", bluetang: "블루탱",
-  arowana: "아로와나", coelacanth: "실러캔스", mola: "개복치",
-  hatchet: "도끼고기", angler: "초롱아귀", gulper: "풍선장어", oarfish: "산갈치",
-  bluewhale: "흰수염고래", giantsquid: "대왕오징어",
-};
-const VARIED = ["tetra", "guppy", "angel", "seahorse"]; // species with random palettes
 
 function discover(species, palIdx) {
   const list = save.dex[species] || (save.dex[species] = []);
@@ -653,12 +287,6 @@ function discover(species, palIdx) {
 function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
 
 // feed tiers: pure buff — no starvation penalty, satiety just gates breeding
-const FEED_DEF = [
-  // daily > 0 → that many free claims per local calendar day, then paid at price
-  { key: "basic",  label: "일반 사료", price: 20,  daily: 20, pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
-  { key: "prime",  label: "고급 사료", price: 100, daily: 10, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
-  { key: "golden", label: "황금 사료", price: 300, daily: 0,  pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
-];
 function todayStr() { return new Date().toLocaleDateString("en-CA"); }
 function rationLeft(item) {
   if (save.ration.date !== todayStr()) { save.ration = { date: todayStr(), basic: 0, prime: 0 }; }
@@ -667,40 +295,11 @@ function rationLeft(item) {
 const BREED_SAT = 60;
 // graded gacha eggs: each tier's pool is a superset of the tier below —
 // rarer fish just take a bigger share as the grade goes up
-const EGG_SHOP = [
-  { grade: 0, label: "일반 알", price: 100 },
-  { grade: 1, label: "고급 알", price: 300 },
-  { grade: 2, label: "전설 알", price: 900 },
-  { grade: 3, label: "신화 알", price: 2500 },
-];
-const EGG_POOLS = [
-  [ ["tetra", 22], ["guppy", 22], ["clown", 12], ["angel", 10], ["goldfish", 10], ["zebra", 8],
-    ["molly", 6], ["starfish", 5], ["seahorse", 5] ],
-  // within every pool a more common species never rolls below a rarer one
-  [ ["tetra", 11], ["guppy", 11], ["clown", 8], ["angel", 7], ["goldfish", 7], ["zebra", 6],
-    ["molly", 5], ["starfish", 5], ["seahorse", 5],
-    ["crab", 5], ["puffer", 5], ["jelly", 5], ["betta", 5], ["sword", 5], ["discus", 4],
-    ["bluetang", 4], ["whale", 3], ["hatchet", 4], ["angler", 3] ],
-  [ ["tetra", 8], ["guppy", 8], ["goldfish", 7], ["clown", 6], ["angel", 6], ["zebra", 6],
-    ["molly", 5], ["starfish", 5], ["seahorse", 5],
-    ["crab", 5], ["puffer", 5], ["jelly", 5], ["sword", 4], ["whale", 4], ["betta", 4],
-    ["discus", 4], ["bluetang", 3],
-    ["hatchet", 3], ["angler", 3], ["gulper", 2], ["oarfish", 1.5],
-    ["golden", 3], ["arowana", 2.5], ["coelacanth", 2.5], ["mola", 2.5] ],
-  // mythic egg: legendary tier and above only — no commons, no mids
-  [ ["gulper", 20], ["mola", 18], ["arowana", 16], ["golden", 13], ["coelacanth", 11], ["oarfish", 8],
-    ["giantsquid", 6], ["bluewhale", 5], ["beluga", 3] ],
-];
 // deep-sea species only enter a pool once their layer is open
 function availablePool(grade) {
   return (EGG_POOLS[grade] || EGG_POOLS[0]).filter(([k]) => !DEEP_REQ[k] || save.depth >= DEEP_REQ[k]);
 }
 // parent diet (lower of the pair) caps the egg grade; richer feed only raises the odds
-const BREED_EGG_ODDS = [
-  [1, 0, 0],
-  [0.6, 0.4, 0],
-  [0.4, 0.4, 0.2],
-];
 function rollEggGrade(diet, crowns) {
   const odds = (BREED_EGG_ODDS[diet] || BREED_EGG_ODDS[0]).slice();
   // crowned parents tilt the roll toward the best grade their diet allows
@@ -721,29 +320,7 @@ function rollEggSpecies(grade) {
   for (const [key, w] of pool) { roll -= w; if (roll <= 0) return key; }
   return pool[0][0];
 }
-const SELL_PRICE = {
-  tetra: 50, guppy: 50, clown: 70, angel: 75, starfish: 75, seahorse: 85,
-  goldfish: 55, zebra: 50, molly: 55,
-  crab: 110, puffer: 135, jelly: 135, sword: 200, whale: 400,
-  betta: 150, discus: 160, bluetang: 150,
-  hatchet: 180, angler: 350, gulper: 600, oarfish: 1300,
-  mola: 750, arowana: 880, golden: 1000, coelacanth: 1100,
-  giantsquid: 1500, bluewhale: 1800, beluga: 2500,
-};
 // first-discovery dex bounty, scaled by rarity (default 30 for commons)
-const DEX_BONUS = {
-  crab: 60, puffer: 60, jelly: 60, sword: 60, whale: 60,
-  betta: 60, discus: 60, bluetang: 60,
-  hatchet: 80, angler: 120, gulper: 180, oarfish: 300,
-  arowana: 150, mola: 150, coelacanth: 200, golden: 200,
-  giantsquid: 350, bluewhale: 400, beluga: 500,
-};
-const FRAME_SHOP = [
-  { key: "", label: "기본 프레임", price: 0 },
-  { key: "wood", label: "원목 프레임", price: 300 },
-  { key: "neon", label: "네온 프레임", price: 800 },
-  { key: "gold", label: "황금 프레임", price: 1500 },
-];
 
 // graded eggs roll their species at hatch time — suspense until it cracks
 function dropGradeEgg(grade, x, y, hatch) {
@@ -775,10 +352,6 @@ function buyFeed(item) {
 }
 
 // deep-sea layers: extend the tank downward, +8 capacity each
-const DEPTH_SHOP = [
-  { label: "심해 1층", price: 1500 },
-  { label: "심해 2층", price: 4000 },
-];
 
 function applyDepth() {
   tankDepth = save.depth;
@@ -803,7 +376,6 @@ function buyDepth(idx) {
 }
 
 // per-grade drop rates, derived from the same EGG_POOLS the gacha rolls
-const GRADE_COLORS = ["#9fb6cc", "#46d8ff", "#ffd54a", "#ff6b9d"];
 const oddsOpen = [false, false, false, false]; // survives shop re-renders
 function eggOddsRow(grade) {
   const pool = availablePool(grade);
@@ -949,7 +521,6 @@ function dexSprite(key) {
 
 // a species' rarity tier = the lowest egg pool it appears in
 const tierOf = (key) => EGG_POOLS.findIndex(p => p.some(([k]) => k === key));
-const TIER_LABELS = ["🥉 일반 등급", "🥈 고급 등급", "🥇 전설 등급", "🔮 신화 등급"];
 
 function renderDex() {
   dexBody.innerHTML = "";
@@ -1018,7 +589,6 @@ function dexGrid(defs) {
 }
 
 // ---------- hatch history ----------
-const GRADE_NAMES = ["일반 알", "고급 알", "전설 알", "신화 알"];
 function recordHatch(egg, species) {
   const g = egg.grade == null ? -1 : egg.grade;
   save.hatchLog.unshift({ g, s: species, ts: Date.now() });
@@ -1867,20 +1437,6 @@ function drawSprite(rows, cxr, cyr, dir, pal, opts) {
 }
 
 // classic oval egg: highlight top-left, shaded bottom-right, grade-tinted
-const EGG_ROWS = [
-  ".bbb.",
-  "bhhbb",
-  "bhbbb",
-  "bbbbd",
-  "bbbdd",
-  ".bdd.",
-];
-const EGG_PALS = [
-  { b: "#fff3dd", h: "#fffdf4", d: "#d9b98a" }, // common (and legacy species-fixed eggs)
-  { b: "#9fd0f5", h: "#d8eeff", d: "#5f8fd4" }, // premium
-  { b: "#ffe17a", h: "#fff6c9", d: "#c79a1e" }, // legendary
-  { b: "#c98fff", h: "#efe0ff", d: "#8a55cc" }, // mythic
-];
 function drawEgg(e) {
   const pal = EGG_PALS[e.grade] || EGG_PALS[0];
   // hatching soon: rock side to side, then a crack appears
@@ -2014,18 +1570,6 @@ function drawJailFront() {
 }
 
 // pixel gold coin: round, black outline, warm gold face, S mark, top-left shine
-const COIN_ROWS = [
-  "...ooo...",
-  ".oohhyoo.",
-  ".ohhyyyo.",
-  "ohhyyyyso",
-  "ohyyyyyso",
-  "oyyyyysso",
-  ".oyyysso.",
-  ".oosssoo.",
-  "...ooo...",
-];
-const COIN_COLORS = { o: "#1a1208", h: "#fff2b8", y: "#ffd54a", s: "#d99b26" };
 const COIN_H = COIN_ROWS.length, COIN_C = (COIN_H - 1) / 2;
 function drawCoins() {
   for (const c of coins) {
