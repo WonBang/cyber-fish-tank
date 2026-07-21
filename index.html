@@ -2562,10 +2562,11 @@ function update(dt) {
   }
 
   // mantis shrimp guards the chest: punches anything that swims too close
-  // (during a raid fight it saves its punches for the boss)
+  // (during a raid fight it saves its punches for the boss; while a shark
+  // hunts it holds fire — a knocked-out fish is shark food)
   MANTIS.cool -= dt;
   if (MANTIS.show > 0) MANTIS.show -= dt;
-  if (MANTIS.cool <= 0 && (!raid || raid.phase === "warn")) {
+  if (MANTIS.cool <= 0 && !shark && (!raid || raid.phase === "warn")) {
     for (const f of fishes) {
       if (SAND_DWELLERS.includes(f.species) || f.knock > 0 || f.jail || f.dragged) continue;
       if (Math.abs(f.x - (CHEST.x + 6)) < 13 && f.y > CHEST.y - 15) {
