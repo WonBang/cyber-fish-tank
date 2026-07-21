@@ -63,3 +63,20 @@
 ```
 open index.html
 ```
+
+## macOS 메뉴바 위젯 🖥️
+
+메뉴바의 🐟 아이콘을 누르면 팝오버로 어항이 열립니다. 우클릭 메뉴에서 창으로 분리할 수도 있습니다.
+
+**설치 (Releases)**
+
+1. [Releases](https://github.com/WonBang/cyber-fish-tank/releases)에서 `CyberFishTank-vX.Y.Z.zip` 다운로드 후 압축 해제
+2. `CyberFishTank.app`을 **우클릭 → 열기** (아직 노터라이즈 전이라 첫 실행은 이 방법이 필요합니다. 이후엔 그냥 실행됩니다)
+
+**직접 빌드**
+
+```
+./macos/build.sh run
+```
+
+Xcode Command Line Tools만 있으면 됩니다. `./macos/build.sh release`는 배포용 zip을 만듭니다.

@@ -333,6 +333,20 @@
     cursor: default;
   }
   .tankwrap.feeding #tank { cursor: crosshair; }
+  /* #widget: compact drawer layout for the menubar popover */
+  body.compact .frame,
+  body.compact .frame.skin-wood,
+  body.compact .frame.skin-neon,
+  body.compact .frame.skin-gold {
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  body.compact .tankwrap { border-radius: 0; margin: 0 auto; }
+  body.compact .menubtns button,
+  body.compact .toolbar .feedbar button { padding: 3px 7px; }
   .name-tag {
     position: absolute;
     transform: translate(-50%, -100%);
@@ -402,6 +416,8 @@
 <script>
 (() => {
 "use strict";
+// #widget: the macOS menubar app loads this page with a hash to get the compact layout
+if (location.hash === "#widget") document.body.classList.add("compact");
 // deep-sea expansion: each purchased layer extends the tank downward
 const W = 192, BASE_H = 120, BASE_SAND = 108, LAYER_H = 15, MAX_DEPTH = 2;
 let tankDepth = 0;
@@ -1268,6 +1284,12 @@ function shopRow(name, price, btnText, onClick, disabled) {
   return d;
 }
 
+// scroll only the shop body — scrollIntoView would also scroll .frame while
+// the sheet is mid-slide (still translated offscreen), shoving the whole tank
+function scrollShopTo(id) {
+  const el = document.getElementById(id);
+  if (el) shopBody.scrollTop = el.offsetTop - shopBody.offsetTop;
+}
 function renderShop() {
   shopBody.innerHTML = "";
   // anchor-chip nav across the four sections
@@ -1277,10 +1299,7 @@ function renderShop() {
   for (const [id, label] of SECTS) {
     const b = document.createElement("button");
     b.textContent = label;
-    b.addEventListener("click", () => {
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ block: "start" });
-    });
+    b.addEventListener("click", () => scrollShopTo(id));
     nav.appendChild(b);
   }
   shopBody.appendChild(nav);
@@ -1567,8 +1586,7 @@ function renderFeedBar() {
       if ((save.feed[fd.key] || 0) <= 0) {
         // out of stock: deep-link to the feed section of the shop
         openSheet("shop");
-        const sec = document.getElementById("sect-feed");
-        if (sec) sec.scrollIntoView({ block: "start" });
+        scrollShopTo("sect-feed");
         return;
       }
       if (feedArmed && feedTier === i) {

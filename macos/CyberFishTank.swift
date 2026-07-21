@@ -24,7 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         }
 
         let config = WKWebViewConfiguration()
+        #if DEBUG
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        #endif
         webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 640, height: 480), configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
         loadTank()
