@@ -56,12 +56,14 @@
 
 이기면 금화 비와 함께 희귀한 알이 떨어집니다. 버티지 못하면… 한 마리를 잃습니다.
 
-## 실행
+## 실행 / 개발
 
-의존성 없는 HTML 파일 하나. 빌드 없이 브라우저에서 바로 열립니다.
+Vite + TypeScript 프로젝트입니다.
 
 ```
-open index.html
+npm install
+npm run dev      # 개발 서버 (HMR)
+npm run build    # dist/ 정적 빌드 — 브라우저에서 dist/index.html 바로 열림
 ```
 
 ## macOS 메뉴바 위젯 🖥️

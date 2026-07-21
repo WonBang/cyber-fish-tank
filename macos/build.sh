@@ -18,7 +18,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 swiftc -O CyberFishTank.swift -o "$APP/Contents/MacOS/CyberFishTank"
 
-cp ../index.html "$APP/Contents/Resources/index.html"
+( cd .. && npm run build --silent )
+cp -R ../dist/. "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
