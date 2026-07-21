@@ -330,8 +330,9 @@
     height: 100%;
     max-width: 100%;
     image-rendering: pixelated;
-    cursor: crosshair;
+    cursor: default;
   }
+  .tankwrap.feeding #tank { cursor: crosshair; }
   .name-tag {
     position: absolute;
     transform: translate(-50%, -100%);
@@ -974,6 +975,7 @@ const sheetTitleEl = document.getElementById("sheetTitle");
 const popupEl = document.getElementById("fishPopup");
 const feedbarEl = document.getElementById("feedbar");
 let feedTier = 0; // which feed the next water click scatters
+let feedArmed = false; // feeding only happens while a feed button is armed
 
 function renderGold() { goldEl.textContent = save.gold; }
 function addGold(n) { save.gold += n; renderGold(); persist(); }
@@ -1069,16 +1071,17 @@ const EGG_SHOP = [
 const EGG_POOLS = [
   [ ["tetra", 22], ["guppy", 22], ["clown", 12], ["angel", 10], ["goldfish", 10], ["zebra", 8],
     ["molly", 6], ["starfish", 5], ["seahorse", 5] ],
-  [ ["tetra", 9], ["guppy", 9], ["clown", 6], ["angel", 6], ["goldfish", 5], ["zebra", 4],
-    ["molly", 3], ["starfish", 4], ["seahorse", 4],
-    ["crab", 10], ["puffer", 8], ["jelly", 8], ["betta", 6], ["sword", 6], ["discus", 5],
+  // within every pool a more common species never rolls below a rarer one
+  [ ["tetra", 11], ["guppy", 11], ["clown", 8], ["angel", 7], ["goldfish", 7], ["zebra", 6],
+    ["molly", 5], ["starfish", 5], ["seahorse", 5],
+    ["crab", 5], ["puffer", 5], ["jelly", 5], ["betta", 5], ["sword", 5], ["discus", 4],
     ["bluetang", 4], ["whale", 3], ["hatchet", 4], ["angler", 3] ],
-  [ ["tetra", 7], ["guppy", 7], ["goldfish", 6], ["clown", 5], ["angel", 5], ["zebra", 5],
-    ["molly", 4], ["starfish", 3], ["seahorse", 3],
-    ["crab", 7], ["puffer", 6], ["jelly", 6], ["sword", 5], ["whale", 5], ["betta", 4],
+  [ ["tetra", 8], ["guppy", 8], ["goldfish", 7], ["clown", 6], ["angel", 6], ["zebra", 6],
+    ["molly", 5], ["starfish", 5], ["seahorse", 5],
+    ["crab", 5], ["puffer", 5], ["jelly", 5], ["sword", 4], ["whale", 4], ["betta", 4],
     ["discus", 4], ["bluetang", 3],
-    ["hatchet", 3], ["angler", 3], ["gulper", 2.5], ["oarfish", 1.5],
-    ["golden", 6], ["arowana", 3.5], ["coelacanth", 2.5], ["mola", 2.5] ],
+    ["hatchet", 3], ["angler", 3], ["gulper", 2], ["oarfish", 1.5],
+    ["golden", 3], ["arowana", 2.5], ["coelacanth", 2.5], ["mola", 2.5] ],
   // mythic egg: legendary tier and above only — no commons, no mids
   [ ["gulper", 20], ["mola", 18], ["arowana", 16], ["golden", 13], ["coelacanth", 11], ["oarfish", 8],
     ["giantsquid", 6], ["bluewhale", 5], ["beluga", 3] ],
@@ -1549,7 +1552,7 @@ function renderFeedBar() {
   feedbarEl.appendChild(lab);
   FEED_DEF.forEach((fd, i) => {
     const b = document.createElement("button");
-    b.className = i === feedTier ? "on" : "";
+    b.className = feedArmed && i === feedTier ? "on" : "";
     b.title = `${fd.label} — 물 클릭으로 급여 (남은 ${save.feed[fd.key] || 0}알)`;
     const dot = document.createElement("span");
     dot.className = "fdot";
@@ -1567,11 +1570,18 @@ function renderFeedBar() {
         if (sec) sec.scrollIntoView({ block: "start" });
         return;
       }
-      feedTier = i;
+      if (feedArmed && feedTier === i) {
+        feedArmed = false; // second press disarms back to select mode
+      } else {
+        feedTier = i;
+        feedArmed = true;
+        toast("물을 클릭하면 먹이를 줘요 — 버튼을 다시 누르면 해제");
+      }
       renderFeedBar();
     });
     feedbarEl.appendChild(b);
   });
+  wrap.classList.toggle("feeding", feedArmed);
 }
 
 function feed(px) {
@@ -1593,7 +1603,6 @@ function feed(px) {
       claims: 0, maxClaims: ri(1, 2), grounded: false, tier: feedTier,
     });
   }
-  log(`feed.sh: ${n} flakes dropped`, "ok");
 }
 function nonCrabCount() { return fishes.filter(f => f.species !== "crab").length; }
 
@@ -2048,7 +2057,8 @@ cv.addEventListener("click", (e) => {
     if (d < bd) { bd = d; best = f; }
   }
   if (best) { openFishPopup(best); return; }
-  feed(mx);
+  // water clicks feed only while a feed button is armed; otherwise it's select mode
+  if (feedArmed) feed(mx);
 });
 
 
@@ -3065,7 +3075,7 @@ if (!restored) {
   // first-run guide: introduce the core loop one toast at a time
   [
     "🖱️ 마우스를 움직이면 아래에 메뉴가 나타나요",
-    "🍞 물을 클릭하면 먹이를 줄 수 있어요",
+    "🍞 먹이 버튼을 누른 뒤 물을 클릭하면 먹이를 줘요",
     "🐟 물고기를 클릭하면 정보 카드가 열려요 — 이름짓기·판매·감옥",
     "📦 보물상자를 클릭하면 골드가 나와요",
   ].forEach((m, i) => setTimeout(() => toast(m, true), 1500 + i * 3500));
