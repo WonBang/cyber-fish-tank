@@ -12,43 +12,154 @@
     margin: 0;
     background: #05070d;
     background-image: radial-gradient(ellipse 90% 60% at 50% -10%, #0a1626 0%, transparent 60%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px 16px;
+    overflow: hidden;
   }
   .app {
     display: flex;
-    gap: 14px;
-    align-items: flex-start;
-    justify-content: center;
     width: 100%;
-    max-width: 1180px;
+    height: 100vh;
   }
-  .panel {
-    width: 220px;
-    flex: none;
-    border-radius: 14px;
-    background: linear-gradient(180deg, #111a30, #0a0f1a);
-    border: 1px solid #1b2a45;
-    padding: 10px;
-    font: 12px/1.5 "SF Mono", "Menlo", "Consolas", monospace;
-    color: #cfe3f5;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 86vh;
-  }
-  .wallet {
-    font-size: 14px;
-    font-weight: 700;
-    color: #ffd54a;
+  .goldchip {
+    position: absolute;
+    top: 8px; right: 8px;
+    z-index: 6;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 2px;
+    gap: 5px;
+    padding: 3px 9px;
+    background: rgba(4, 10, 20, 0.6);
+    border: 1px solid rgba(36, 64, 107, 0.65);
+    border-radius: 8px;
+    font: 700 12px/1.5 "SF Mono", "Menlo", "Consolas", monospace;
+    color: #ffd54a;
+    pointer-events: none;
   }
-  .wallet .amt { margin-left: auto; }
+  .toolbar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 10px 8px;
+    background: linear-gradient(180deg, rgba(6, 12, 24, 0), rgba(6, 12, 24, 0.92) 35%);
+    font: 12px/1.5 "SF Mono", "Menlo", "Consolas", monospace;
+    color: #cfe3f5;
+    transform: translateY(110%);
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .toolbar.show { transform: none; opacity: 1; pointer-events: auto; }
+  .toolbar .feedbar { flex: 1; min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
+  .toolbar .feedbar button { flex: 0 1 auto; padding: 3px 8px; }
+  .menubtns { display: flex; gap: 6px; flex: none; }
+  .menubtns button {
+    background: #0e1830;
+    color: #cfe3f5;
+    border: 1px solid #24406b;
+    border-radius: 6px;
+    font: inherit;
+    padding: 4px 9px;
+    cursor: pointer;
+  }
+  .menubtns button:hover { border-color: #46d8ff; }
+  .sheet {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 252px;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    background: rgba(7, 14, 27, 0.96);
+    border-left: 1px solid #1b2a45;
+    font: 12px/1.5 "SF Mono", "Menlo", "Consolas", monospace;
+    color: #cfe3f5;
+    transform: translateX(105%);
+    transition: transform 0.25s ease;
+  }
+  .sheet.open { transform: none; }
+  .sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .sheet-head button {
+    background: none;
+    border: none;
+    color: #7fa3c8;
+    font: 13px "SF Mono", "Menlo", "Consolas", monospace;
+    cursor: pointer;
+    padding: 2px 4px;
+  }
+  .sheet-head button:hover { color: #e8f2fa; }
+  .sheetbody { overflow-y: auto; min-height: 0; flex: 1; }
+  .sheetnav { display: flex; gap: 4px; flex-wrap: wrap; }
+  .sheetnav button {
+    background: #0e1830;
+    color: #7fa3c8;
+    border: 1px solid #1b2a45;
+    border-radius: 10px;
+    font: 10px "SF Mono", "Menlo", "Consolas", monospace;
+    padding: 2px 8px;
+    cursor: pointer;
+  }
+  .sheetnav button:hover { color: #cfe3f5; border-color: #24406b; }
+  .popup {
+    position: absolute;
+    z-index: 18;
+    width: 152px;
+    padding: 8px;
+    background: rgba(7, 14, 27, 0.96);
+    border: 1px solid #2a4a78;
+    border-radius: 8px;
+    font: 11px/1.5 "SF Mono", "Menlo", "Consolas", monospace;
+    color: #cfe3f5;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  }
+  .popup .phead {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+  .popup .phead canvas { image-rendering: pixelated; }
+  .popup .prow {
+    display: flex;
+    justify-content: space-between;
+    color: #7fa3c8;
+    font-size: 10px;
+  }
+  .popup .pbar {
+    height: 5px;
+    margin: 2px 0 4px;
+    background: #0e1830;
+    border: 1px solid #24406b;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .popup .pbar i { display: block; height: 100%; background: #46d8ff; }
+  .popup .pbtns { display: flex; gap: 4px; margin-top: 6px; }
+  .popup .pbtns button {
+    flex: 1;
+    background: #16305c;
+    color: #dfeaff;
+    border: 1px solid #2a4a78;
+    border-radius: 5px;
+    font: 10px "SF Mono", "Menlo", "Consolas", monospace;
+    padding: 3px 2px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .popup .pbtns button:disabled { opacity: 0.45; cursor: default; }
+  .popup .pbtns button.pulse { border-color: #ff6b9d; animation: ppulse 1.2s infinite; }
+  @keyframes ppulse { 50% { box-shadow: 0 0 8px rgba(255, 107, 157, 0.7); } }
   .coin-ico {
     width: 13px;
     height: 13px;
@@ -56,19 +167,6 @@
     vertical-align: -2px;
     margin: 0 1px;
   }
-  .tabs { display: flex; gap: 6px; }
-  .tabs button, .panel .btn {
-    flex: 1;
-    background: #0e1830;
-    color: #cfe3f5;
-    border: 1px solid #24406b;
-    border-radius: 6px;
-    font: inherit;
-    padding: 5px 6px;
-    cursor: pointer;
-  }
-  .tabs button.on, .panel .btn.on { background: #1c3a6e; border-color: #46d8ff; color: #fff; }
-  .tabbody { overflow-y: auto; min-height: 0; flex: 1; }
   .hidden { display: none; }
   .sect { margin-top: 8px; color: #7fa3c8; font-size: 11px; letter-spacing: 0.08em; }
   .item {
@@ -95,14 +193,13 @@
     cursor: pointer;
   }
   .odds button:hover { color: #cfe3f5; }
-  .oddsgrid {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr auto;
-    column-gap: 8px;
-    padding-top: 2px;
-  }
-  .oddsgrid .pc { text-align: right; color: #a8c8e8; }
-  .oddsgrid.hidden { display: none; }
+  .oddsrow { display: flex; align-items: center; gap: 5px; padding: 1px 0; font-size: 10px; }
+  .oddsrow .dot { width: 6px; height: 6px; border-radius: 2px; flex: none; }
+  .oddsrow .onm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .oddsrow .pc { color: #a8c8e8; }
+  .oddsrow .bar { width: 40px; height: 4px; background: #0e1830; border-radius: 2px; overflow: hidden; flex: none; }
+  .oddsrow .bar i { display: block; height: 100%; }
+  .oddstable.hidden { display: none; }
   .eggico { width: 10px !important; flex: none; cursor: default; image-rendering: pixelated; }
   .feedbar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
   .feedbar button { white-space: nowrap; padding: 3px 4px; }
@@ -153,11 +250,10 @@
   .dexcell canvas { image-rendering: pixelated; width: 100%; max-width: 60px; }
   .dexcell.undisc { opacity: 0.5; }
   .dexcell .dnm { font-size: 11px; line-height: 1.3; }
-  .hint { font-size: 10px; color: #7fa3c8; min-height: 14px; }
   .toasts {
     position: absolute;
     left: 8px;
-    bottom: 8px;
+    bottom: 46px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -183,10 +279,12 @@
   .frame {
     flex: 1;
     min-width: 0;
-    width: 100%;
-    max-width: 920px;
-    padding: 10px;
-    border-radius: 18px;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    margin: 4px;
+    padding: 4px;
+    border-radius: 12px;
     background: linear-gradient(180deg, #16203a, #0a0f1a);
     border: 1px solid #1b2a45;
     box-shadow:
@@ -216,19 +314,21 @@
       0 0 40px rgba(255, 213, 74, 0.25),
       0 30px 80px rgba(0, 0, 0, 0.65);
   }
-  @media (max-width: 760px) {
-    .app { flex-direction: column; align-items: stretch; }
-    .panel { width: 100%; max-height: none; order: 2; }
-  }
   .tankwrap {
     position: relative;
     border-radius: 10px;
     overflow: hidden;
     background: #04101e;
+    height: 100%;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
   }
-  canvas {
+  #tank {
     display: block;
-    width: 100%;
+    width: auto;
+    height: 100%;
+    max-width: 100%;
     image-rendering: pixelated;
     cursor: crosshair;
   }
@@ -267,87 +367,40 @@
     position: absolute; inset: 0; pointer-events: none;
     background: radial-gradient(ellipse 120% 100% at 50% 45%, transparent 55%, rgba(2,6,12,0.55) 100%);
   }
-  /* ---- widget mode (menubar app loads index.html#widget) ---- */
-  body.compact { padding: 0; display: block; }
-  .compact .app {
-    flex-direction: column;
-    gap: 0;
-    max-width: none;
-    height: 100vh;
-    position: relative;
-  }
-  .compact .frame {
-    order: 1;
-    flex: 1;
-    min-height: 0;
-    max-width: none;
-    width: auto;
-    padding: 4px;
-    border-radius: 10px;
-    margin: 4px 4px 0;
-  }
-  .compact .tankwrap { height: 100%; width: fit-content; max-width: 100%; margin: 0 auto; }
-  .compact canvas { width: auto; height: 100%; max-width: 100%; }
-  .compact .panel {
-    order: 2;
-    width: auto;
-    max-height: none;
-    border-radius: 12px 12px 0 0;
-  }
-  /* closed: only wallet + feedbar rows exist; open: overlay sheet over the tank */
-  .compact .tabs, .compact .tabbody, .compact #sellBtn { display: none; }
-  .compact .panel.open {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    z-index: 10;
-    max-height: 78%;
-  }
-  .compact .panel.open .tabs { display: flex; }
-  .compact .panel.open .tabbody:not(.hidden) { display: block; }
-  .compact .panel.open #sellBtn { display: block; }
-  .compact .wallet { order: -3; cursor: pointer; }
-  .compact .wallet::after { content: "▴ 메뉴"; font-size: 10px; font-weight: 400; color: #7fa3c8; margin-left: 8px; }
-  .compact .panel.open .wallet::after { content: "▾ 닫기"; }
-  .compact .feedbar { order: -2; flex-wrap: nowrap; overflow-x: auto; }
-  .compact .feedbar button { flex: 0 1 auto; padding: 3px 8px; }
-  .compact .feedbar .feedtip { display: none; }
-  .compact .tabs { order: 0; }
-  .compact .hint { display: none; }
-  .compact .toasts { z-index: 20; }
 </style>
 </head>
 <body>
 
 <div class="app">
-  <aside class="panel">
-    <div class="wallet" id="wallet">골드 <span class="amt" id="goldAmt">0</span></div>
-    <div class="tabs">
-      <button id="tabShop" class="on">상점</button>
-      <button id="tabDex">도감</button>
-      <button id="tabLog">기록</button>
-    </div>
-    <div class="feedbar" id="feedbar"></div>
-    <div id="shopBody" class="tabbody"></div>
-    <div id="dexBody" class="tabbody hidden"></div>
-    <div id="logBody" class="tabbody hidden"></div>
-    <button id="sellBtn" class="btn">🏷️ 판매 모드</button>
-    <div class="hint" id="hint"></div>
-  </aside>
   <div class="frame" id="frame">
     <div class="tankwrap">
       <canvas id="tank" width="192" height="120" aria-label="픽셀 아트 사이버 어항. 물고기들이 헤엄치는 애니메이션. 클릭하면 먹이를 줄 수 있습니다."></canvas>
       <div class="scanlines"></div>
       <div class="vignette"></div>
+      <div class="goldchip" id="goldChip"><span id="goldAmt">0</span></div>
+      <div class="toolbar" id="toolbar">
+        <div class="feedbar" id="feedbar"></div>
+        <div class="menubtns">
+          <button data-sheet="shop">🏪 상점</button>
+          <button data-sheet="dex">📖 도감</button>
+          <button data-sheet="log">📜 기록</button>
+        </div>
+      </div>
+      <div class="popup hidden" id="fishPopup"></div>
       <div class="toasts" id="toasts"></div>
     </div>
+    <aside class="sheet" id="sheet">
+      <div class="sheet-head"><span id="sheetTitle"></span><button id="sheetClose">✕ 닫기</button></div>
+      <div id="shopBody" class="sheetbody"></div>
+      <div id="dexBody" class="sheetbody hidden"></div>
+      <div id="logBody" class="sheetbody hidden"></div>
+    </aside>
   </div>
 </div>
 
 <script>
 (() => {
 "use strict";
-// widget mode: menubar app loads index.html#widget (query also accepted)
-if (/[?#&]widget/.test(location.search + location.hash)) document.body.classList.add("compact");
 // deep-sea expansion: each purchased layer extends the tank downward
 const W = 192, BASE_H = 120, BASE_SAND = 108, LAYER_H = 15, MAX_DEPTH = 2;
 let tankDepth = 0;
@@ -915,8 +968,10 @@ const toastsEl = document.getElementById("toasts");
 const shopBody = document.getElementById("shopBody");
 const dexBody = document.getElementById("dexBody");
 const frameEl = document.getElementById("frame");
-const hintEl = document.getElementById("hint");
-const sellBtn = document.getElementById("sellBtn");
+const toolbarEl = document.getElementById("toolbar");
+const sheetEl = document.getElementById("sheet");
+const sheetTitleEl = document.getElementById("sheetTitle");
+const popupEl = document.getElementById("fishPopup");
 const feedbarEl = document.getElementById("feedbar");
 let feedTier = 0; // which feed the next water click scatters
 
@@ -1140,30 +1195,45 @@ function buyDepth(idx) {
 }
 
 // per-grade drop rates, derived from the same EGG_POOLS the gacha rolls
+const GRADE_COLORS = ["#9fb6cc", "#46d8ff", "#ffd54a", "#ff6b9d"];
 const oddsOpen = [false, false, false, false]; // survives shop re-renders
 function eggOddsRow(grade) {
   const pool = availablePool(grade);
   const total = pool.reduce((s, p) => s + p[1], 0);
+  const top = Math.max(...pool.map((p) => p[1]));
   const d = document.createElement("div");
   d.className = "odds";
   const b = document.createElement("button");
-  const txt = document.createElement("div");
-  txt.className = "oddsgrid";
+  const tbl = document.createElement("div");
+  tbl.className = "oddstable";
   for (const [key, w] of [...pool].sort((a, b) => b[1] - a[1])) {
+    const row = document.createElement("div");
+    row.className = "oddsrow";
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.background = GRADE_COLORS[Math.max(0, tierOf(key))];
     const nm = document.createElement("span");
+    nm.className = "onm";
     nm.textContent = KOR[key];
+    const bar = document.createElement("span");
+    bar.className = "bar";
+    const fill = document.createElement("i");
+    fill.style.width = (w / top * 100).toFixed(0) + "%";
+    fill.style.background = GRADE_COLORS[Math.max(0, tierOf(key))];
+    bar.appendChild(fill);
     const pc = document.createElement("span");
     pc.className = "pc";
     pc.textContent = (w / total * 100).toFixed(1) + "%";
-    txt.append(nm, pc);
+    row.append(dot, nm, bar, pc);
+    tbl.appendChild(row);
   }
   const sync = () => {
     b.textContent = oddsOpen[grade] ? "확률 접기 ▲" : "확률 보기 ▼";
-    txt.classList.toggle("hidden", !oddsOpen[grade]);
+    tbl.classList.toggle("hidden", !oddsOpen[grade]);
   };
   b.addEventListener("click", () => { oddsOpen[grade] = !oddsOpen[grade]; sync(); });
   sync();
-  d.append(b, txt);
+  d.append(b, tbl);
   return d;
 }
 
@@ -1196,13 +1266,33 @@ function shopRow(name, price, btnText, onClick, disabled) {
 
 function renderShop() {
   shopBody.innerHTML = "";
-  const sect = (title) => {
+  // anchor-chip nav across the four sections
+  const SECTS = [["sect-egg", "🥚 알"], ["sect-feed", "🍞 사료"], ["sect-depth", "🌊 확장"], ["sect-skin", "🖼️ 스킨"]];
+  const nav = document.createElement("div");
+  nav.className = "sheetnav";
+  for (const [id, label] of SECTS) {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ block: "start" });
+    });
+    nav.appendChild(b);
+  }
+  shopBody.appendChild(nav);
+  const sect = (title, id) => {
     const s = document.createElement("div");
     s.className = "sect";
+    s.id = id;
     s.textContent = title;
     shopBody.appendChild(s);
   };
-  sect("🍞 먹이");
+  sect("🥚 물고기 알", "sect-egg");
+  for (const it of EGG_SHOP) {
+    shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyEgg(it)));
+    shopBody.appendChild(eggOddsRow(it.grade));
+  }
+  sect("🍞 사료", "sect-feed");
   for (const it of FEED_DEF) {
     const left = it.daily > 0 ? rationLeft(it) : 0;
     if (left > 0) {
@@ -1212,12 +1302,7 @@ function renderShop() {
       shopBody.appendChild(shopRow(`${it.label} ×${it.pack}`, it.price, "구매", () => buyFeed(it)));
     }
   }
-  sect("🥚 물고기 알");
-  for (const it of EGG_SHOP) {
-    shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyEgg(it)));
-    shopBody.appendChild(eggOddsRow(it.grade));
-  }
-  sect("🌊 어항 확장");
+  sect("🌊 어항 확장", "sect-depth");
   DEPTH_SHOP.forEach((it, i) => {
     const owned = save.depth > i;
     const locked = i > save.depth; // must open layer 1 before layer 2
@@ -1226,7 +1311,7 @@ function renderShop() {
       owned ? "개방됨" : locked ? "잠김" : "구매",
       () => buyDepth(i), owned || locked));
   });
-  sect("🖼️ 어항 테두리");
+  sect("🖼️ 어항 테두리", "sect-skin");
   for (const it of FRAME_SHOP) {
     const owned = it.price === 0 || save.frames.includes(it.key);
     const active = save.frame === it.key;
@@ -1257,6 +1342,11 @@ const TIER_LABELS = ["🥉 일반 등급", "🥈 고급 등급", "🥇 전설 �
 
 function renderDex() {
   dexBody.innerHTML = "";
+  const foundTotal = SPECIES_DEF.filter(d => (save.dex[d.key] || []).length > 0).length;
+  const sum = document.createElement("div");
+  sum.className = "sect";
+  sum.textContent = `🔍 발견 ${foundTotal}/${SPECIES_DEF.length}`;
+  dexBody.appendChild(sum);
   for (let tier = 0; tier < 4; tier++) {
     const species = SPECIES_DEF.filter(d => tierOf(d.key) === tier);
     if (!species.length) continue;
@@ -1385,25 +1475,9 @@ function renderLog() {
   }
 }
 
-// sell mode: click a fish to sell it
-let sellMode = false;
-sellBtn.addEventListener("click", () => {
-  sellMode = !sellMode;
-  sellBtn.classList.toggle("on", sellMode);
-  hintEl.textContent = sellMode ? "물고기를 클릭하면 판매됩니다" : "";
-  toast(sellMode ? "판매 모드: 물고기 클릭 = 판매" : "판매 모드 해제");
-});
-
-let sellConfirm = null; // named/crowned fish need a second click within 3s
+// selling happens from the fish popup — the popup click is the confirmation
 function sellFish(f) {
   if (f.species !== "crab" && nonCrabCount() <= MIN_FISH) { toast("어항 최소 인원 — 더 팔 수 없어요"); return; }
-  if ((f.customName || isCrowned(f)) &&
-      !(sellConfirm && sellConfirm.f === f && performance.now() - sellConfirm.t < 3000)) {
-    sellConfirm = { f, t: performance.now() };
-    toast(`${f.customName || KOR[f.species]} 판매하려면 3초 안에 한 번 더 클릭`);
-    return;
-  }
-  sellConfirm = null;
   // crowned veterans fetch a premium — feeding them was an investment
   const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
   dropFood(f);
@@ -1419,36 +1493,51 @@ function sellFish(f) {
   }
 }
 
-// panel tabs
-const tabShop = document.getElementById("tabShop");
-const tabDex = document.getElementById("tabDex");
-const tabLog = document.getElementById("tabLog");
+// ---------- toolbar (hover-reveal) + side sheet ----------
 const logBody = document.getElementById("logBody");
-function switchTab(which) {
-  tabShop.classList.toggle("on", which === "shop");
-  tabDex.classList.toggle("on", which === "dex");
-  tabLog.classList.toggle("on", which === "log");
+let sheetOpen = null;
+let tbTimer = 0;
+function toolbarPinned() {
+  return sheetOpen || popupFish || toolbarEl.matches(":hover");
+}
+function resetTbTimer() {
+  clearTimeout(tbTimer);
+  tbTimer = setTimeout(() => {
+    if (toolbarPinned()) { resetTbTimer(); return; }
+    toolbarEl.classList.remove("show");
+  }, 2500);
+}
+function showToolbar() {
+  toolbarEl.classList.add("show");
+  resetTbTimer();
+}
+frameEl.addEventListener("mousemove", showToolbar);
+
+const SHEET_TITLES = { shop: "🏪 상점", dex: "📖 도감", log: "📜 기록" };
+function openSheet(which) {
+  sheetOpen = which;
+  sheetEl.classList.add("open");
+  sheetTitleEl.textContent = SHEET_TITLES[which];
   shopBody.classList.toggle("hidden", which !== "shop");
   dexBody.classList.toggle("hidden", which !== "dex");
   logBody.classList.toggle("hidden", which !== "log");
-  if (which === "log") renderLog();
+  ({ shop: renderShop, dex: renderDex, log: renderLog })[which]();
+  closeFishPopup();
+  showToolbar();
 }
-tabShop.addEventListener("click", () => switchTab("shop"));
-tabDex.addEventListener("click", () => switchTab("dex"));
-tabLog.addEventListener("click", () => switchTab("log"));
-
-// widget mode: panel becomes a slide-up drawer over the tank
-if (document.body.classList.contains("compact")) {
-  const panelEl = document.querySelector(".panel");
-  const walletEl = document.getElementById("wallet");
-  walletEl.addEventListener("click", () => panelEl.classList.toggle("open"));
-  [tabShop, tabDex, tabLog].forEach((b) =>
-    b.addEventListener("click", () => panelEl.classList.add("open")));
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") panelEl.classList.remove("open");
-  });
-  cv.addEventListener("mousedown", () => panelEl.classList.remove("open"));
+function closeSheet() {
+  sheetOpen = null;
+  sheetEl.classList.remove("open");
 }
+document.querySelectorAll(".menubtns [data-sheet]").forEach((b) =>
+  b.addEventListener("click", () => openSheet(b.dataset.sheet)));
+document.getElementById("sheetClose").addEventListener("click", closeSheet);
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (popupFish) { closeFishPopup(); return; }
+  if (sheetOpen) closeSheet();
+});
+cv.addEventListener("mousedown", () => { if (sheetOpen) closeSheet(); });
 
 // ---------- actions ----------
 function renderFeedBar() {
@@ -1470,13 +1559,19 @@ function renderFeedBar() {
     cnt.className = "cnt";
     cnt.textContent = `${save.feed[fd.key] || 0}`;
     b.appendChild(cnt);
-    b.addEventListener("click", () => { feedTier = i; renderFeedBar(); });
+    b.addEventListener("click", () => {
+      if ((save.feed[fd.key] || 0) <= 0) {
+        // out of stock: deep-link to the feed section of the shop
+        openSheet("shop");
+        const sec = document.getElementById("sect-feed");
+        if (sec) sec.scrollIntoView({ block: "start" });
+        return;
+      }
+      feedTier = i;
+      renderFeedBar();
+    });
     feedbarEl.appendChild(b);
   });
-  const tip = document.createElement("div");
-  tip.className = "feedtip";
-  tip.textContent = "물을 클릭하면 선택한 먹이를 뿌려요";
-  feedbarEl.appendChild(tip);
 }
 
 function feed(px) {
@@ -1511,6 +1606,7 @@ function summonShark() {
 
 // ---------- raid ----------
 function startRaid() {
+  closeFishPopup();
   raid = { phase: "warn", timer: RAID_WARN_MS, boss: null, rallyCd: 0, retreat: 0 };
 }
 
@@ -1829,22 +1925,102 @@ function endDrag(e) {
 cv.addEventListener("mouseup", endDrag);
 cv.addEventListener("mouseleave", endDrag);
 
+// ---------- fish context popup ----------
+let popupFish = null;
+let swallowNextClick = false;
+function closeFishPopup() {
+  popupFish = null;
+  popupEl.classList.add("hidden");
+}
+function popupSprite(f) {
+  const rows = dexSprite(f.species);
+  const s = 2;
+  const mc = document.createElement("canvas");
+  mc.width = rows[0].length * s;
+  mc.height = rows.length * s;
+  const g = mc.getContext("2d");
+  const pal = f.pal || FISH_PALETTES[f.palIdx || 0] || FISH_PALETTES[0];
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < rows[r].length; c++) {
+      const ch = rows[r][c];
+      if (ch === ".") continue;
+      g.fillStyle = ch === "b" ? pal.b : ch === "f" ? pal.f : ch === "d" ? pal.d :
+        ch === "e" ? "#0a0e14" : "#e8f2fa";
+      g.fillRect(c * s, r * s, s, s);
+    }
+  }
+  return mc;
+}
+function openFishPopup(f) {
+  popupFish = f;
+  popupEl.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "phead";
+  head.append(popupSprite(f), `${f.customName || KOR[f.species]}${isCrowned(f) ? " 👑" : ""}`);
+  const sat = document.createElement("div");
+  sat.className = "prow";
+  sat.append(document.createTextNode("포만감"), document.createTextNode(`${Math.round(f.sat)}/100`));
+  const bar = document.createElement("div");
+  bar.className = "pbar";
+  const fill = document.createElement("i");
+  fill.style.width = Math.max(0, Math.min(100, Math.round(f.sat))) + "%";
+  bar.appendChild(fill);
+  const crown = document.createElement("div");
+  crown.className = "prow";
+  crown.append(document.createTextNode("왕관"),
+    document.createTextNode(isCrowned(f) ? "👑 달성" : `${f.ate}/${CROWN_AT}`));
+  const btns = document.createElement("div");
+  btns.className = "pbtns";
+  const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
+  const sellB = document.createElement("button");
+  sellB.append(`판매 +${price}`, coinImg(9));
+  sellB.addEventListener("click", () => { closeFishPopup(); sellFish(f); });
+  const nameB = document.createElement("button");
+  nameB.textContent = "이름";
+  if (f.ate >= LOVE_AT && !f.customName) nameB.classList.add("pulse");
+  nameB.addEventListener("click", () => { closeFishPopup(); openNameInput(f); });
+  const jailB = document.createElement("button");
+  jailB.textContent = "감옥";
+  if (SLOW_GIANTS.includes(f.species)) { jailB.disabled = true; jailB.title = "감옥 문보다 커요"; }
+  jailB.addEventListener("click", () => {
+    closeFishPopup();
+    if (imprison(f)) {
+      for (let k = 0; k < 4; k++) bubbles.push({ x: f.x, y: f.y, r: 1, ph: rnd(0, 6) });
+    } else {
+      toast("감옥이 가득 찼어요");
+    }
+  });
+  btns.append(sellB, nameB, jailB);
+  popupEl.append(head, sat, bar, crown, btns);
+  popupEl.classList.remove("hidden");
+  // anchor once near the fish (no tracking), clamped inside the tank; flip below when cramped
+  const r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+  const fx = f.x / W * r.width + (r.left - wr.left);
+  const fy = f.y / H * r.height + (r.top - wr.top);
+  let left = fx - popupEl.offsetWidth / 2;
+  let top = fy - popupEl.offsetHeight - 10;
+  if (top < 4) top = fy + 12;
+  left = Math.max(4, Math.min(wr.width - popupEl.offsetWidth - 4, left));
+  top = Math.max(4, Math.min(wr.height - popupEl.offsetHeight - 4, top));
+  popupEl.style.left = left + "px";
+  popupEl.style.top = top + "px";
+}
+// outside click closes the popup; that same click must not feed
+document.addEventListener("mousedown", (e) => {
+  if (!popupFish) return;
+  if (popupEl.contains(e.target)) return;
+  closeFishPopup();
+  if (e.target === cv) swallowNextClick = true;
+});
+// fish gone (sold / eaten / raid casualty): drop the card
+setInterval(() => { if (popupFish && !fishes.includes(popupFish)) closeFishPopup(); }, 500);
+
 cv.addEventListener("click", (e) => {
   if (suppressClick) { suppressClick = false; return; }
+  if (swallowNextClick) { swallowNextClick = false; return; }
   const r = cv.getBoundingClientRect();
   const mx = (e.clientX - r.left) / r.width * W;
   const my = (e.clientY - r.top) / r.height * H;
-  // sell mode: click a fish to sell
-  if (sellMode) {
-    let pick = null, pd = 9;
-    for (const f of fishes) {
-      if (f.jail || f.dragged) continue;
-      const d = Math.hypot(f.x - mx, f.y - my);
-      if (d < pd) { pd = d; pick = f; }
-    }
-    if (pick) sellFish(pick);
-    return;
-  }
   // during a raid fight, clicks are battle commands
   if (raid && raid.phase === "fight") {
     const b = raid.boss;
@@ -1864,13 +2040,14 @@ cv.addEventListener("click", (e) => {
     openChest();
     return;
   }
-  // clicking a well-fed fish opens naming instead of feeding
-  let best = null, bd = 8;
+  // clicking a fish opens its context card; clicking water feeds
+  let best = null, bd = 7;
   for (const f of fishes) {
+    if (f.jail || f.dragged) continue;
     const d = Math.hypot(f.x - mx, f.y - my);
     if (d < bd) { bd = d; best = f; }
   }
-  if (best && best.ate >= LOVE_AT) { openNameInput(best); return; }
+  if (best) { openFishPopup(best); return; }
   feed(mx);
 });
 
@@ -2829,11 +3006,12 @@ function loop(now) {
 }
 
 // ---------- boot ----------
-document.getElementById("wallet").prepend(coinImg(15));
+document.getElementById("goldChip").prepend(coinImg(13));
 renderGold();
 renderShop();
 renderDex();
 renderFeedBar();
+showToolbar(); // visible once on load so newcomers learn it exists
 // reopen daily rations if the tank is left running past local midnight
 let shopDate = todayStr();
 setInterval(() => {
@@ -2886,10 +3064,10 @@ if (!restored) {
   }
   // first-run guide: introduce the core loop one toast at a time
   [
+    "🖱️ 마우스를 움직이면 아래에 메뉴가 나타나요",
     "🍞 물을 클릭하면 먹이를 줄 수 있어요",
+    "🐟 물고기를 클릭하면 정보 카드가 열려요 — 이름짓기·판매·감옥",
     "📦 보물상자를 클릭하면 골드가 나와요",
-    "💗 하트가 뜬 물고기를 클릭해 이름을 지어주세요",
-    "🚔 물고기를 왼쪽 아래 감옥에 드래그하면 노역으로 골드를 벌어요",
   ].forEach((m, i) => setTimeout(() => toast(m, true), 1500 + i * 3500));
 }
 persistNow();
