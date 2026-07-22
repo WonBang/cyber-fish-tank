@@ -52,9 +52,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
     func loadTank() {
         let htmlURL = tankHTMLURL()
-        // #widget switches index.html into the compact drawer layout
-        let widgetURL = URL(string: htmlURL.absoluteString + "#widget") ?? htmlURL
-        webView.loadFileURL(widgetURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
+        // #compact switches index.html into the compact drawer layout
+        let compactURL = URL(string: htmlURL.absoluteString + "#compact") ?? htmlURL
+        webView.loadFileURL(compactURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
     }
 
     func tankHTMLURL() -> URL {

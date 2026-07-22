@@ -9,8 +9,8 @@ import { px, drawWater, drawSand, drawPlant, drawRocks, drawSprite, drawEgg, dra
 import { dropFood } from "./update";
 import { loop } from "./render";
 
-// #widget: the macOS menubar app loads this page with a hash to get the compact layout
-if (location.hash === "#widget") document.body.classList.add("compact");
+// #compact: the macOS menubar app loads this page with a hash to get the compact layout
+if (location.hash === "#compact") document.body.classList.add("compact");
 
 // ---------- palette ----------
 

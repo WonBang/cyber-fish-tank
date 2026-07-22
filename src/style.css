@@ -327,7 +327,7 @@
     cursor: default;
   }
   .tankwrap.feeding #tank { cursor: crosshair; }
-  /* #widget: compact drawer layout for the menubar popover */
+  /* #compact: compact drawer layout for the menubar popover */
   body.compact .frame,
   body.compact .frame.skin-wood,
   body.compact .frame.skin-neon,
