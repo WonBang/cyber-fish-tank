@@ -56,10 +56,13 @@ function update(dt) {
   S.t += dt;
   const nightMul = S.night ? 0.5 : 1;
 
-  // S.raid state machine
+  // S.raid state machine (event timers freeze during catch-up: raids and
+  // sharks need a present player — absence must never cost a fish)
   if (!S.raid) {
-    S.raidTimer -= dt;
-    if (S.raidTimer <= 0 && fishes.length >= 8 && !S.shark) startRaid();
+    if (!S.catchup) {
+      S.raidTimer -= dt;
+      if (S.raidTimer <= 0 && fishes.length >= 8 && !S.shark) startRaid();
+    }
   } else if (S.raid.phase === "warn") {
     S.raid.timer -= dt;
     if (S.raid.timer <= 0) {
@@ -87,9 +90,9 @@ function update(dt) {
   const threat = S.raid && S.raid.phase === "fight" ? S.raid.boss : S.shark;
   const fleeR = S.raid && S.raid.phase === "fight" ? 26 : 75;
 
-  // S.shark event (paused during raids)
-  if (!S.raid) S.sharkTimer -= dt;
-  if (!S.raid && !S.shark && S.sharkTimer <= 0) { summonShark(); }
+  // S.shark event (paused during raids and catch-up)
+  if (!S.raid && !S.catchup) S.sharkTimer -= dt;
+  if (!S.raid && !S.shark && !S.catchup && S.sharkTimer <= 0) { summonShark(); }
   if (S.shark) {
     S.shark.x += S.shark.dir * (reduced ? 0.4 : 0.75) * dt * 0.06;
     S.shark.y += Math.sin(S.t * 0.005) * 0.03 * dt * 0.06;
@@ -510,4 +513,48 @@ function update(dt) {
   }
 }
 
-export { dropFood, update };
+// ---------- background catch-up ----------
+// rAF stops while the page is hidden (menubar popover closed, tab in the
+// background), so wall-clock time is lost. On return we fast-forward the
+// simulation in a time-boxed loop; raid/shark triggers freeze while
+// S.catchup is set, so time away only ever pays out (jail wages, hatches).
+const CU_MAX_REAL = 8 * 3600 * 1000; // simulate at most 8h of absence
+const CU_STEP = 45; // sim-ms per step = 100ms real at the 45% pace
+function queueCatchup(gapMs) {
+  if (!S.cuLeft) {
+    S.cuStats = { gold: S.save.gold, fish: fishes.length, real: 0 };
+    // nobody was watching: an in-flight raid or shark visit is called off
+    if (S.raid) { S.raid = null; S.raidTimer = rnd(60000, 120000); S.raidDark = 0; }
+    S.shark = null;
+  }
+  S.cuStats.real += Math.min(gapMs, CU_MAX_REAL);
+  S.cuLeft = Math.min((S.cuLeft || 0) + gapMs * 0.45, CU_MAX_REAL * 0.45);
+}
+function runCatchup() {
+  if (!S.cuLeft) return;
+  S.catchup = true;
+  const t0 = performance.now();
+  // ~8ms of real work per frame keeps the UI responsive while fast-forwarding
+  while (S.cuLeft > 0 && performance.now() - t0 < 8) {
+    const step = Math.min(CU_STEP, S.cuLeft);
+    update(step);
+    S.cuLeft -= step;
+  }
+  S.catchup = false;
+  if (S.cuLeft <= 0) {
+    S.cuLeft = 0;
+    const st = S.cuStats;
+    S.cuStats = null;
+    if (st.real < 60000) return; // short blips resolve silently
+    const dg = S.save.gold - st.gold, df = fishes.length - st.fish;
+    const mins = Math.round(st.real / 60000);
+    const dur = mins >= 60 ? `${Math.floor(mins / 60)}시간 ${mins % 60}분` : `${mins}분`;
+    const bits = [];
+    if (dg > 0) bits.push(`+${dg}🪙`);
+    if (df > 0) bits.push(`물고기 +${df}마리`);
+    toast(`😴 ${dur} 만에 복귀${bits.length ? " — " + bits.join(", ") : ""}`);
+    log(`부재 ${dur} 경과분 반영${bits.length ? " — " + bits.join(", ") : ""}`);
+  }
+}
+
+export { dropFood, update, queueCatchup, runCatchup };

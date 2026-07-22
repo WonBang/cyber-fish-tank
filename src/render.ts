@@ -4,7 +4,7 @@ import { W, cx } from "./canvas";
 import { FEED_DEF } from "./economy";
 import { MANTIS_SPRITE, MANTIS_PAL } from "./sprites";
 import { px, drawWater, drawSand, drawPlant, drawRocks, drawSprite, drawEgg, drawFish, drawShark, drawRaid, drawJailBack, drawJailFront, drawCoins, drawChest } from "./draw";
-import { update } from "./update";
+import { update, queueCatchup, runCatchup } from "./update";
 import { plants, MANTIS, CHEST, eggs, flakes, fishes, hearts, bubbles, rings, updateNameTags } from "./game";
 
 // ---------- render ----------
@@ -62,10 +62,14 @@ function render() {
 
 // ---------- loop ----------
 function loop(now) {
-  const rawDt = Math.min(50, Math.max(0, now - S.lastT));
+  const elapsed = now - S.lastT;
+  S.lastT = now;
+  // a long gap means rAF was suspended (hidden page) — fast-forward it
+  if (elapsed > 5000) queueCatchup(elapsed);
+  runCatchup();
+  const rawDt = Math.min(50, Math.max(0, elapsed));
   // global pace: simulation runs at 45% speed for a calm, ornamental feel
   const dt = rawDt * 0.45;
-  S.lastT = now;
   update(dt);
   render();
   updateNameTags();

@@ -6,7 +6,7 @@ import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE,
 import { W, BASE_H, BASE_SAND, LAYER_H, MAX_DEPTH, cv, cx, reduced } from "./canvas";
 import { rnd, ri, todayStr, fmtWhen } from "./utils";
 import { px, drawWater, drawSand, drawPlant, drawRocks, drawSprite, drawEgg, drawFish, drawShark, drawRaid, drawJailBack, drawJailFront, drawCoins, drawChest } from "./draw";
-import { dropFood } from "./update";
+import { dropFood, queueCatchup } from "./update";
 import { loop } from "./render";
 
 // #compact: the macOS menubar app loads this page with a hash to get the compact layout
@@ -195,6 +195,7 @@ function snapshotTank() {
 function persistNow() {
   clearTimeout(S.saveT);
   snapshotTank();
+  S.save.lastTick = Date.now();
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(S.save)); } catch (e) {}
 }
 function persist() {
@@ -1321,6 +1322,9 @@ if (!S.restored) {
     "📦 보물상자를 클릭하면 골드가 나와요",
   ].forEach((m, i) => setTimeout(() => toast(m, true), 1500 + i * 3500));
 }
+// time passed while the app was closed: fast-forward it (fish/eggs restored above)
+const bootGap = Date.now() - (S.save.lastTick || Date.now());
+if (bootGap > 5000) queueCatchup(bootGap);
 persistNow();
 requestAnimationFrame(loop);
 
