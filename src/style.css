@@ -155,6 +155,8 @@
     overflow: hidden;
   }
   .popup .pbar i { display: block; height: 100%; background: #46d8ff; }
+  .popup .pstat { margin-top: 4px; }
+  .popup .pbar.gold i { background: #ffd54a; }
   .dexcard {
     position: absolute;
     z-index: 30;

@@ -1343,27 +1343,31 @@ function openFishPopup(f) {
   const head = document.createElement("div");
   head.className = "phead";
   head.append(popupSprite(f), `${f.customName || KOR[f.species]}${isCrowned(f) ? " 👑" : ""}`);
-  const sat = document.createElement("div");
-  sat.className = "prow";
-  // label/value must be separate elements — adjacent text nodes merge into
-  // one anonymous flex item, defeating the .prow space-between layout
-  const satLab = document.createElement("span");
-  satLab.textContent = tr("포만감", "Satiety");
-  const satVal = document.createElement("span");
-  satVal.textContent = `${Math.round(f.sat)}/100`;
-  sat.append(satLab, satVal);
-  const bar = document.createElement("div");
-  bar.className = "pbar";
-  const fill = document.createElement("i");
-  fill.style.width = Math.max(0, Math.min(100, Math.round(f.sat))) + "%";
-  bar.appendChild(fill);
-  const crown = document.createElement("div");
-  crown.className = "prow";
-  const crownLab = document.createElement("span");
-  crownLab.textContent = tr("왕관", "Crown");
-  const crownVal = document.createElement("span");
-  crownVal.textContent = isCrowned(f) ? tr("👑 달성", "👑 Earned") : `${f.ate}/${CROWN_AT}`;
-  crown.append(crownLab, crownVal);
+  // each stat is a label/value row with its own bar right beneath it
+  // (label and value must be separate elements — adjacent text nodes merge
+  // into one anonymous flex item, defeating the .prow space-between layout)
+  const statGroup = (label, value, ratio, gold) => {
+    const g = document.createElement("div");
+    g.className = "pstat";
+    const row = document.createElement("div");
+    row.className = "prow";
+    const lab = document.createElement("span");
+    lab.textContent = label;
+    const val = document.createElement("span");
+    val.textContent = value;
+    row.append(lab, val);
+    const bar = document.createElement("div");
+    bar.className = gold ? "pbar gold" : "pbar";
+    const fill = document.createElement("i");
+    fill.style.width = Math.max(0, Math.min(100, Math.round(ratio * 100))) + "%";
+    bar.appendChild(fill);
+    g.append(row, bar);
+    return g;
+  };
+  const sat = statGroup(tr("포만감", "Satiety"), `${Math.round(f.sat)}/100`, f.sat / 100, false);
+  const crown = statGroup(tr("왕관", "Crown"),
+    isCrowned(f) ? tr("👑 달성", "👑 Earned") : `${f.ate}/${CROWN_AT}`,
+    isCrowned(f) ? 1 : f.ate / CROWN_AT, true);
   const btns = document.createElement("div");
   btns.className = "pbtns";
   const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
@@ -1386,7 +1390,7 @@ function openFishPopup(f) {
     }
   });
   btns.append(sellB, nameB, jailB);
-  popupEl.append(head, sat, bar, crown, btns);
+  popupEl.append(head, sat, crown, btns);
   popupEl.classList.remove("hidden");
   // anchor once near the fish (no tracking), clamped inside the tank; flip below when cramped
   const r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
