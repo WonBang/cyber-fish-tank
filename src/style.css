@@ -394,9 +394,13 @@
     height: 100%;
     max-width: 100%;
     image-rendering: pixelated;
-    cursor: default;
+    /* pixel-art arrow cursor (cyan outline) */
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" shape-rendering="crispEdges"><path d="M2 1 L2 15 L6 11 L9 17 L12 16 L9 10 L14 10 Z" fill="%23e8f6ff" stroke="%2317a8c8" stroke-width="1.5"/></svg>') 2 1, default;
   }
-  .tankwrap.feeding #tank { cursor: crosshair; }
+  /* feeding mode: food pellet cursor */
+  .tankwrap.feeding #tank {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" shape-rendering="crispEdges"><g stroke="%23052235" stroke-width="1"><circle cx="12" cy="12" r="5" fill="%23e8a33d"/><circle cx="10" cy="10" r="1.6" fill="%23ffd98a" stroke="none"/></g><rect x="4" y="3" width="2" height="2" fill="%23e8a33d"/><rect x="19" y="6" width="2" height="2" fill="%23e8a33d"/><rect x="17" y="19" width="2" height="2" fill="%23e8a33d"/><rect x="3" y="17" width="2" height="2" fill="%23e8a33d"/></svg>') 12 12, crosshair;
+  }
   /* #compact: compact drawer layout for the menubar popover */
   body.compact .frame,
   body.compact .frame.skin-wood,
