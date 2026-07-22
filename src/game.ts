@@ -300,6 +300,7 @@ const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ", "Ⅸ", "�
 function statVal(stat) {
   if (stat === "species") return SPECIES_DEF.filter(d => (S.save.dex[d.key] || []).length > 0).length;
   if (stat === "seasonal") return SPECIES_DEF.filter(d => SEASON_REQ[d.key] != null && (S.save.dex[d.key] || []).length > 0).length;
+  if (stat === "colors") return VARIED.reduce((s, k) => s + (S.save.dex[k] || []).filter(i => i >= 0).length, 0);
   return S.save.stats[stat] || 0;
 }
 function checkAchToasts() {
