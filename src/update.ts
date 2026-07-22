@@ -239,7 +239,7 @@ function update(dt) {
         hearts.push({ x: JAIL.right + 4, y: floorY - 8, life: 1000 });
         for (let k = 0; k < 5; k++) bubbles.push({ x: JAIL.right + 2, y: floorY - 4, r: 1, ph: rnd(0, 6) });
         // the treadmill powers the tank generator — labor pays out on release
-        const wage = ri(40, 80);
+        const wage = ri(20, 40);
         addGold(wage);
         toast(`${f.customName || KOR[f.species]} 노역 완료 +${wage}🪙`);
         log(`${f.customName || KOR[f.species]} 노역 완료 +${wage}골드`);
