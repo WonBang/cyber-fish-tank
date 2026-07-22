@@ -1345,7 +1345,13 @@ function openFishPopup(f) {
   head.append(popupSprite(f), `${f.customName || KOR[f.species]}${isCrowned(f) ? " 👑" : ""}`);
   const sat = document.createElement("div");
   sat.className = "prow";
-  sat.append(document.createTextNode(tr("포만감", "Satiety")), document.createTextNode(`${Math.round(f.sat)}/100`));
+  // label/value must be separate elements — adjacent text nodes merge into
+  // one anonymous flex item, defeating the .prow space-between layout
+  const satLab = document.createElement("span");
+  satLab.textContent = tr("포만감", "Satiety");
+  const satVal = document.createElement("span");
+  satVal.textContent = `${Math.round(f.sat)}/100`;
+  sat.append(satLab, satVal);
   const bar = document.createElement("div");
   bar.className = "pbar";
   const fill = document.createElement("i");
@@ -1353,8 +1359,11 @@ function openFishPopup(f) {
   bar.appendChild(fill);
   const crown = document.createElement("div");
   crown.className = "prow";
-  crown.append(document.createTextNode(tr("왕관", "Crown")),
-    document.createTextNode(isCrowned(f) ? tr("👑 달성", "👑 Earned") : `${f.ate}/${CROWN_AT}`));
+  const crownLab = document.createElement("span");
+  crownLab.textContent = tr("왕관", "Crown");
+  const crownVal = document.createElement("span");
+  crownVal.textContent = isCrowned(f) ? tr("👑 달성", "👑 Earned") : `${f.ate}/${CROWN_AT}`;
+  crown.append(crownLab, crownVal);
   const btns = document.createElement("div");
   btns.className = "pbtns";
   const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
