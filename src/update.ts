@@ -4,6 +4,7 @@ import { W, BASE_SAND, LAYER_H, reduced } from "./canvas";
 import { rnd, ri } from "./utils";
 import { MIN_FISH } from "./palette";
 import { FEED_DEF, KOR } from "./economy";
+import { tr } from "./i18n";
 import { DEEP_REQ } from "./sprites";
 import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, SLOW_GIANTS, BOSS_HP, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, bumpStat } from "./game";
 
@@ -44,8 +45,8 @@ function eat(f, fl) {
   bumpStat("fed");
   if (f.ate >= LOVE_AT) hearts.push({ x: f.x, y: f.y - 5, life: 1100 });
   if (f.ate === CROWN_AT) {
-    log(`${f.customName || KOR[f.species]} 왕관 획득 👑`);
-    toast(`${f.customName || KOR[f.species]} 왕관 획득 👑 — 판매 +50%, 번식 강화`);
+    log(tr(`${f.customName || KOR[f.species]} 왕관 획득 👑`, `${f.customName || KOR[f.species]} earned a crown 👑`));
+    toast(tr(`${f.customName || KOR[f.species]} 왕관 획득 👑 — 판매 +50%, 번식 강화`, `${f.customName || KOR[f.species]} earned a crown 👑 — sell +50%, better breeding`));
   }
   f.food = null;
   f.retarget = 0;
@@ -242,8 +243,8 @@ function update(dt) {
         // the treadmill powers the tank generator — labor pays out on release
         const wage = ri(20, 40);
         addGold(wage);
-        toast(`${f.customName || KOR[f.species]} 노역 완료 +${wage}🪙`);
-        log(`${f.customName || KOR[f.species]} 노역 완료 +${wage}골드`);
+        toast(tr(`${f.customName || KOR[f.species]} 노역 완료 +${wage}🪙`, `${f.customName || KOR[f.species]} finished labor +${wage}🪙`));
+        log(tr(`${f.customName || KOR[f.species]} 노역 완료 +${wage}골드`, `${f.customName || KOR[f.species]} finished labor +${wage} gold`));
         bumpStat("jailDone");
         for (let k = 0; k < 3; k++) {
           coins.push({ x: JAIL.right + 4 + rnd(-2, 2), y: floorY - 6, vy: -rnd(0.15, 0.3), life: rnd(500, 900), ghost: true });
@@ -550,12 +551,12 @@ function runCatchup() {
     if (st.real < 60000) return; // short blips resolve silently
     const dg = S.save.gold - st.gold, df = fishes.length - st.fish;
     const mins = Math.round(st.real / 60000);
-    const dur = mins >= 60 ? `${Math.floor(mins / 60)}시간 ${mins % 60}분` : `${mins}분`;
+    const dur = mins >= 60 ? tr(`${Math.floor(mins / 60)}시간 ${mins % 60}분`, `${Math.floor(mins / 60)}h ${mins % 60}m`) : tr(`${mins}분`, `${mins}m`);
     const bits = [];
     if (dg > 0) bits.push(`+${dg}🪙`);
-    if (df > 0) bits.push(`물고기 +${df}마리`);
-    toast(`😴 ${dur} 만에 복귀${bits.length ? " — " + bits.join(", ") : ""}`);
-    log(`부재 ${dur} 경과분 반영${bits.length ? " — " + bits.join(", ") : ""}`);
+    if (df > 0) bits.push(tr(`물고기 +${df}마리`, `+${df} fish`));
+    toast(tr(`😴 ${dur} 만에 복귀`, `😴 Back after ${dur}`) + (bits.length ? " — " + bits.join(", ") : ""));
+    log(tr(`부재 ${dur} 경과분 반영`, `Away ${dur} — progress applied`) + (bits.length ? " — " + bits.join(", ") : ""));
   }
 }
 

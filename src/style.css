@@ -62,6 +62,7 @@
   .toolbar .feedbar button { flex: 0 1 auto; padding: 3px 8px; }
   .menubtns { display: flex; gap: 6px; flex: none; }
   .menubtns button {
+    white-space: nowrap;
     background: #0e1830;
     color: #cfe3f5;
     border: 1px solid #24406b;
@@ -96,6 +97,7 @@
     font-weight: 700;
   }
   .sheet-head button {
+    white-space: nowrap;
     background: none;
     border: none;
     color: #7fa3c8;
@@ -129,6 +131,7 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   }
   .popup .phead {
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 5px;
@@ -238,7 +241,7 @@
     padding: 4px 2px;
     border-bottom: 1px dashed #16233c;
   }
-  .item .nm { flex: 1; }
+  .item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .odds {
     padding: 3px 2px 5px;
     border-bottom: 1px dashed #16233c;
@@ -292,6 +295,8 @@
   .feedbar button.on .cnt { color: #bfe3ff; }
   .item .pr { color: #ffd54a; font-size: 11px; }
   .item button {
+    flex: none;
+    white-space: nowrap;
     background: #16305c;
     color: #dfeaff;
     border: 1px solid #2a4a78;
@@ -325,6 +330,8 @@
     z-index: 5;
   }
   .toast {
+    max-width: 90%;
+    white-space: normal;
     background: rgba(6, 12, 24, 0.85);
     border: 1px solid #24406b;
     color: #cfe3f5;

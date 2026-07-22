@@ -1,5 +1,6 @@
 // @ts-nocheck — mechanical port from the single-file build; typing is a follow-up pass
 import { S } from "./state";
+import { tr, LANG } from "./i18n";
 import { FISH_PALETTES, MIN_FISH, NAMES } from "./palette";
 import { SPRITES, JELLY_FRAMES, CRAB_FRAMES, SHARK_SPRITE, SHARK_PAL, MANTIS_SPRITE, MANTIS_PAL, SPECIES_DEF, DEEP_REQ, EGG_ROWS, EGG_PALS, COIN_ROWS, COIN_COLORS } from "./sprites";
 import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES, SEASONS, SEASON_REQ, ACH_DEFS } from "./economy";
@@ -257,7 +258,7 @@ function coinImg(size) {
   const img = document.createElement("img");
   img.src = S.coinURL;
   img.className = "coin-ico";
-  img.alt = "골드";
+  img.alt = tr("골드", "gold");
   if (size) img.style.width = img.style.height = size + "px";
   return img;
 }
@@ -286,9 +287,9 @@ function discover(species, palIdx) {
     const bonus = DEX_BONUS[species] || 30;
     addGold(bonus);
     showDexCard(species, idx);
-    log(`📖 도감 등록: ${KOR[species]} +${bonus}골드`);
+    log(tr(`📖 도감 등록: ${KOR[species]} +${bonus}골드`, `📖 New dex entry: ${KOR[species]} +${bonus} gold`));
   }
-  else if (VARIED.includes(species)) { addGold(5); toast(`새 색상 발견: ${KOR[species]} +5🪙`); }
+  else if (VARIED.includes(species)) { addGold(5); toast(tr(`새 색상 발견: ${KOR[species]} +5🪙`, `New color found: ${KOR[species]} +5🪙`)); }
   persist();
   checkAchToasts();
   renderDex();
@@ -309,8 +310,8 @@ function checkAchToasts() {
     if (next >= a.tiers.length) continue;
     if (statVal(a.stat) >= a.tiers[next][0]) {
       S.save.achNoted[a.id] = next + 1;
-      toast(`🏆 업적 달성: ${a.name} ${ROMAN[next]} — 업적 탭에서 보상 수령`);
-      log(`🏆 업적 달성: ${a.name} ${ROMAN[next]}`);
+      toast(tr(`🏆 업적 달성: ${a.name} ${ROMAN[next]} — 업적 탭에서 보상 수령`, `🏆 ${a.name} ${ROMAN[next]} done — claim in Awards tab`));
+      log(tr(`🏆 업적 달성: ${a.name} ${ROMAN[next]}`, `🏆 Achievement: ${a.name} ${ROMAN[next]}`));
     }
   }
 }
@@ -325,7 +326,7 @@ function renderAch() {
   const total = ACH_DEFS.reduce((s, a) => s + a.tiers.length, 0);
   const sum = document.createElement("div");
   sum.className = "sect";
-  sum.textContent = `🏆 달성 ${doneCnt}/${total}`;
+  sum.textContent = tr(`🏆 달성 ${doneCnt}/${total}`, `🏆 Completed ${doneCnt}/${total}`);
   achBody.appendChild(sum);
   for (const a of ACH_DEFS) {
     const claimed = S.save.ach[a.id] || 0;
@@ -334,7 +335,7 @@ function renderAch() {
     const nm = document.createElement("span");
     nm.className = "nm";
     if (claimed >= a.tiers.length) {
-      nm.textContent = `${a.icon} ${a.name} — 완료 ✓`;
+      nm.textContent = tr(`${a.icon} ${a.name} — 완료 ✓`, `${a.icon} ${a.name} — Done ✓`);
       row.appendChild(nm);
       achBody.appendChild(row);
       continue;
@@ -346,14 +347,14 @@ function renderAch() {
     pr.className = "pr";
     pr.append(`+${reward}`, coinImg(10));
     const b = document.createElement("button");
-    b.textContent = "받기";
+    b.textContent = tr("받기", "Claim");
     b.disabled = val < goal;
     b.addEventListener("click", () => {
       if (statVal(a.stat) < goal) return;
       S.save.ach[a.id] = claimed + 1;
       addGold(reward);
-      toast(`🏆 ${a.name} ${ROMAN[claimed]} 보상 +${reward}🪙`);
-      log(`🏆 업적 보상: ${a.name} ${ROMAN[claimed]} +${reward}골드`);
+      toast(tr(`🏆 ${a.name} ${ROMAN[claimed]} 보상 +${reward}🪙`, `🏆 ${a.name} ${ROMAN[claimed]} reward +${reward}🪙`));
+      log(tr(`🏆 업적 보상: ${a.name} ${ROMAN[claimed]} +${reward}골드`, `🏆 Achievement reward: ${a.name} ${ROMAN[claimed]} +${reward} gold`));
       renderAch();
     });
     row.append(nm, pr, b);
@@ -410,22 +411,22 @@ function dropGradeEgg(grade, x, y, hatch) {
 }
 
 function buyEgg(item) {
-  if (fishes.length + eggs.length >= S.CAP) { toast(`어항이 가득 찼어요 (${S.CAP}마리)`); return; }
-  if (S.save.gold < item.price) { toast("골드 부족"); return; }
+  if (fishes.length + eggs.length >= S.CAP) { toast(tr(`어항이 가득 찼어요 (${S.CAP}마리)`, `Tank is full (${S.CAP} fish)`)); return; }
+  if (S.save.gold < item.price) { toast(tr("골드 부족", "Not enough gold")); return; }
   addGold(-item.price);
   dropGradeEgg(item.grade, rnd(40, 140), 8, rnd(14000, 24000));
-  toast(`${item.label} 구매 — 알이 떨어집니다`);
+  toast(tr(`${item.label} 구매 — 알이 떨어집니다`, `${item.label} purchased — egg incoming`));
 }
 
 function buyFeed(item) {
   if (item.daily > 0 && rationLeft(item) > 0) {
     // free daily ration, capped per local calendar day — paid once it runs out
     S.save.ration[item.key] = (S.save.ration[item.key] || 0) + 1;
-    toast(`${item.label} ×${item.pack} 수령 (오늘 ${rationLeft(item)}회 남음)`);
+    toast(tr(`${item.label} ×${item.pack} 수령 (오늘 ${rationLeft(item)}회 남음)`, `${item.label} ×${item.pack} claimed (${rationLeft(item)} left today)`));
   } else {
-    if (S.save.gold < item.price) { toast("골드 부족"); return; }
+    if (S.save.gold < item.price) { toast(tr("골드 부족", "Not enough gold")); return; }
     addGold(-item.price);
-    toast(`${item.label} ×${item.pack} 구매`);
+    toast(tr(`${item.label} ×${item.pack} 구매`, `${item.label} ×${item.pack} purchased`));
   }
   S.save.feed[item.key] = (S.save.feed[item.key] || 0) + item.pack;
   persist();
@@ -448,13 +449,13 @@ function applyDepth() {
 
 function buyDepth(idx) {
   const item = DEPTH_SHOP[idx];
-  if (S.save.gold < item.price) { toast("골드 부족"); return; }
+  if (S.save.gold < item.price) { toast(tr("골드 부족", "Not enough gold")); return; }
   addGold(-item.price);
   S.save.depth = idx + 1;
   applyDepth();
   persist();
   renderShop();
-  toast(`${item.label} 개방 — 어항이 깊어졌어요 (최대 ${S.CAP}마리)`);
+  toast(tr(`${item.label} 개방 — 어항이 깊어졌어요 (최대 ${S.CAP}마리)`, `${item.label} open — deeper tank (max ${S.CAP})`));
 }
 
 // per-grade drop rates, derived from the same EGG_POOLS the gacha rolls
@@ -490,7 +491,7 @@ function eggOddsRow(grade) {
     tbl.appendChild(row);
   }
   const sync = () => {
-    b.textContent = oddsOpen[grade] ? "확률 접기 ▲" : "확률 보기 ▼";
+    b.textContent = oddsOpen[grade] ? tr("확률 접기 ▲", "Hide odds ▲") : tr("확률 보기 ▼", "Show odds ▼");
     tbl.classList.toggle("hidden", !oddsOpen[grade]);
   };
   b.addEventListener("click", () => { oddsOpen[grade] = !oddsOpen[grade]; sync(); });
@@ -535,7 +536,7 @@ function scrollShopTo(id) {
 function renderShop() {
   shopBody.innerHTML = "";
   // anchor-chip nav across the four sections
-  const SECTS = [["sect-egg", "🥚 알"], ["sect-feed", "🍞 사료"], ["sect-depth", "🌊 확장"], ["sect-skin", "🖼️ 스킨"]];
+  const SECTS = [["sect-egg", tr("🥚 알", "🥚 Eggs")], ["sect-feed", tr("🍞 사료", "🍞 Feed")], ["sect-depth", tr("🌊 확장", "🌊 Expand")], ["sect-skin", tr("🖼️ 스킨", "🖼️ Skins")]];
   const nav = document.createElement("div");
   nav.className = "sheetnav";
   for (const [id, label] of SECTS) {
@@ -552,46 +553,46 @@ function renderShop() {
     s.textContent = title;
     shopBody.appendChild(s);
   };
-  sect("🥚 물고기 알", "sect-egg");
+  sect(tr("🥚 물고기 알", "🥚 Fish Eggs"), "sect-egg");
   const seasonNote = document.createElement("div");
   seasonNote.className = "odds";
-  seasonNote.textContent = `지금은 ${SEASONS[seasonNow()]} — 계절 한정 어종이 알에서 나와요`;
+  seasonNote.textContent = tr(`지금은 ${SEASONS[seasonNow()]} — 계절 한정 어종이 알에서 나와요`, `${SEASONS[seasonNow()]} now — seasonal fish in egg pools`);
   shopBody.appendChild(seasonNote);
   for (const it of EGG_SHOP) {
-    shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyEgg(it)));
+    shopBody.appendChild(shopRow(it.label, it.price, tr("구매", "Buy"), () => buyEgg(it)));
     shopBody.appendChild(eggOddsRow(it.grade));
   }
-  sect("🍞 사료", "sect-feed");
+  sect(tr("🍞 사료", "🍞 Feed"), "sect-feed");
   for (const it of FEED_DEF) {
     const left = it.daily > 0 ? rationLeft(it) : 0;
     if (left > 0) {
       shopBody.appendChild(shopRow(
-        `${it.label} ×${it.pack} (무료 ${left}/${it.daily})`, null, "받기", () => buyFeed(it)));
+        `${it.label} ×${it.pack} ${tr(`(무료 ${left}/${it.daily})`, `(free ${left}/${it.daily})`)}`, null, tr("받기", "Claim"), () => buyFeed(it)));
     } else {
-      shopBody.appendChild(shopRow(`${it.label} ×${it.pack}`, it.price, "구매", () => buyFeed(it)));
+      shopBody.appendChild(shopRow(`${it.label} ×${it.pack}`, it.price, tr("구매", "Buy"), () => buyFeed(it)));
     }
   }
-  sect("🌊 어항 확장", "sect-depth");
+  sect(tr("🌊 어항 확장", "🌊 Expand"), "sect-depth");
   DEPTH_SHOP.forEach((it, i) => {
     const owned = S.save.depth > i;
     const locked = i > S.save.depth; // must open layer 1 before layer 2
     shopBody.appendChild(shopRow(
-      `${it.label} (+8마리)`, owned ? null : it.price,
-      owned ? "개방됨" : locked ? "잠김" : "구매",
+      tr(`${it.label} (+8마리)`, `${it.label} (+8 fish)`), owned ? null : it.price,
+      owned ? tr("개방됨", "Owned") : locked ? tr("잠김", "Locked") : tr("구매", "Buy"),
       () => buyDepth(i), owned || locked));
   });
-  sect("🖼️ 어항 테두리", "sect-skin");
+  sect(tr("🖼️ 어항 테두리", "🖼️ Tank Frames"), "sect-skin");
   for (const it of FRAME_SHOP) {
     const owned = it.price === 0 || S.save.frames.includes(it.key);
     const active = S.save.frame === it.key;
     shopBody.appendChild(shopRow(it.label, owned ? null : it.price,
-      active ? "적용중" : owned ? "적용" : "구매",
+      active ? tr("적용중", "Active") : owned ? tr("적용", "Apply") : tr("구매", "Buy"),
       () => {
         if (!owned) {
-          if (S.save.gold < it.price) { toast("골드 부족"); return; }
+          if (S.save.gold < it.price) { toast(tr("골드 부족", "Not enough gold")); return; }
           addGold(-it.price);
           S.save.frames.push(it.key);
-          toast(`${it.label} 잠금 해제!`);
+          toast(tr(`${it.label} 잠금 해제!`, `${it.label} unlocked!`));
         }
         applyFrame(it.key);
       }, active));
@@ -613,7 +614,7 @@ function renderDex() {
   const foundTotal = SPECIES_DEF.filter(d => (S.save.dex[d.key] || []).length > 0).length;
   const sum = document.createElement("div");
   sum.className = "sect";
-  sum.textContent = `🔍 발견 ${foundTotal}/${SPECIES_DEF.length}`;
+  sum.textContent = tr(`🔍 발견 ${foundTotal}/${SPECIES_DEF.length}`, `🔍 Found ${foundTotal}/${SPECIES_DEF.length}`);
   dexBody.appendChild(sum);
   for (let tier = 0; tier < 4; tier++) {
     const species = SPECIES_DEF.filter(d => tierOf(d.key) === tier);
@@ -657,17 +658,17 @@ function dexGrid(defs) {
     const sub = document.createElement("div");
     sub.className = "dnm";
     sub.style.color = "#7fa3c8";
-    const seasonTag = SEASON_REQ[d.key] != null ? `${SEASONS[SEASON_REQ[d.key]]} 한정` : "";
+    const seasonTag = SEASON_REQ[d.key] != null ? tr(`${SEASONS[SEASON_REQ[d.key]]} 한정`, `${SEASONS[SEASON_REQ[d.key]]} only`) : "";
     sub.textContent = found
       ? (VARIED.includes(d.key)
-        ? `색 ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`
-        : seasonTag || "발견")
-      : seasonTag ? `미발견 · ${seasonTag}` : "미발견";
+        ? tr(`색 ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`, `Colors ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`)
+        : seasonTag || tr("발견", "Found"))
+      : seasonTag ? tr(`미발견 · ${seasonTag}`, `Not found · ${seasonTag}`) : tr("미발견", "Not found");
     cell.append(mc, nm, sub);
     if (found) {
       const pr = document.createElement("div");
       pr.className = "dnm dprice";
-      pr.append(`판매 ${SELL_PRICE[d.key] || 40}`, coinImg(9));
+      pr.append(tr(`판매 ${SELL_PRICE[d.key] || 40}`, `Sell ${SELL_PRICE[d.key] || 40}`), coinImg(9));
       cell.appendChild(pr);
     }
     grid.appendChild(cell);
@@ -697,7 +698,7 @@ function nextDexCard() {
 
   const head = document.createElement("div");
   head.className = "dchead";
-  head.textContent = "✨ 새로운 물고기 발견! ✨";
+  head.textContent = tr("✨ 새로운 물고기 발견! ✨", "✨ New Fish Discovered! ✨");
 
   const rows = dexSprite(item.species);
   const s = 6;
@@ -719,34 +720,34 @@ function nextDexCard() {
   nm.className = "dcname";
   nm.textContent = KOR[item.species];
 
-  const tr = document.createElement("div");
-  tr.className = "dctier";
-  tr.textContent = TIER_LABELS[tier];
-  tr.style.color = GRADE_COLORS[tier];
+  const tierEl = document.createElement("div");
+  tierEl.className = "dctier";
+  tierEl.textContent = TIER_LABELS[tier];
+  tierEl.style.color = GRADE_COLORS[tier];
 
-  dexCardEl.append(head, mc, nm, tr);
+  dexCardEl.append(head, mc, nm, tierEl);
 
-  const seasonTag = SEASON_REQ[item.species] != null ? `${SEASONS[SEASON_REQ[item.species]]} 한정` : "";
+  const seasonTag = SEASON_REQ[item.species] != null ? tr(`${SEASONS[SEASON_REQ[item.species]]} 한정`, `${SEASONS[SEASON_REQ[item.species]]} only`) : "";
   if (seasonTag) {
     const se = document.createElement("div");
     se.className = "dcrow";
-    se.append("계절", seasonTag);
+    se.append(tr("계절", "Season"), seasonTag);
     dexCardEl.appendChild(se);
   }
   const bo = document.createElement("div");
   bo.className = "dcrow";
   const bv = document.createElement("span");
   bv.append(`+${DEX_BONUS[item.species] || 30}`, coinImg(9));
-  bo.append("도감 보너스", bv);
+  bo.append(tr("도감 보너스", "Dex bonus"), bv);
   const pr = document.createElement("div");
   pr.className = "dcrow";
   const pv = document.createElement("span");
   pv.append(`${SELL_PRICE[item.species] || 40}`, coinImg(9));
-  pr.append("판매가", pv);
+  pr.append(tr("판매가", "Sell price"), pv);
 
   const hint = document.createElement("div");
   hint.className = "dchint";
-  hint.textContent = "클릭해서 닫기";
+  hint.textContent = tr("클릭해서 닫기", "Click to close");
   dexCardEl.append(bo, pr, hint);
 
   clearTimeout(dexCardTimer);
@@ -769,7 +770,7 @@ function recordHatch(egg, species) {
   if (S.save.hatchLog.length > 60) S.save.hatchLog.length = 60; // keep the last 60
   bumpStat("hatched");
   persist();
-  toast(`${g >= 0 ? GRADE_NAMES[g] : "알"} 부화 → ${KOR[species]}!`);
+  toast(tr(`${g >= 0 ? GRADE_NAMES[g] : "알"} 부화 → ${KOR[species]}!`, `${g >= 0 ? GRADE_NAMES[g] : "Egg"} hatched → ${KOR[species]}!`));
 }
 
 function eggIcon(grade, size) {
@@ -795,7 +796,7 @@ function renderLog() {
   if (Array.isArray(S.save.log) && S.save.log.length) {
     const es = document.createElement("div");
     es.className = "sect";
-    es.textContent = "📋 이벤트 기록";
+    es.textContent = tr("📋 이벤트 기록", "📋 Event Log");
     logBody.appendChild(es);
     for (const ev of S.save.log.slice(-20).reverse()) {
       const d = document.createElement("div");
@@ -811,12 +812,12 @@ function renderLog() {
   }
   const s = document.createElement("div");
   s.className = "sect";
-  s.textContent = `🐣 부화 기록 (최근 ${Math.min(S.save.hatchLog.length, 60)}건)`;
+  s.textContent = tr(`🐣 부화 기록 (최근 ${Math.min(S.save.hatchLog.length, 60)}건)`, `🐣 Hatch Log (last ${Math.min(S.save.hatchLog.length, 60)})`);
   logBody.appendChild(s);
   if (!S.save.hatchLog.length) {
     const d = document.createElement("div");
     d.className = "odds";
-    d.textContent = "아직 부화한 알이 없어요";
+    d.textContent = tr("아직 부화한 알이 없어요", "No eggs hatched yet");
     logBody.appendChild(d);
     return;
   }
@@ -826,7 +827,7 @@ function renderLog() {
     row.appendChild(eggIcon(h.g, 2));
     const nm = document.createElement("span");
     nm.className = "nm";
-    nm.textContent = `${h.g >= 0 ? GRADE_NAMES[h.g] : "알"} → ${KOR[h.s] || h.s}`;
+    nm.textContent = `${h.g >= 0 ? GRADE_NAMES[h.g] : tr("알", "Egg")} → ${KOR[h.s] || h.s}`;
     const when = document.createElement("span");
     when.className = "pr";
     when.textContent = fmtWhen(h.ts);
@@ -837,14 +838,14 @@ function renderLog() {
 
 // selling happens from the fish popup — the popup click is the confirmation
 function sellFish(f) {
-  if (f.species !== "crab" && nonCrabCount() <= MIN_FISH) { toast("어항 최소 인원 — 더 팔 수 없어요"); return; }
+  if (f.species !== "crab" && nonCrabCount() <= MIN_FISH) { toast(tr("어항 최소 인원 — 더 팔 수 없어요", "Tank minimum reached — cannot sell")); return; }
   // crowned veterans fetch a premium — feeding them was an investment
   const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
   dropFood(f);
   fishes.splice(fishes.indexOf(f), 1);
   addGold(price);
-  toast(`${f.customName || KOR[f.species]} 판매 +${price}🪙`);
-  log(`${f.customName || KOR[f.species]} 판매 +${price}골드`);
+  toast(tr(`${f.customName || KOR[f.species]} 판매 +${price}🪙`, `Sold ${f.customName || KOR[f.species]} +${price}🪙`));
+  log(tr(`${f.customName || KOR[f.species]} 판매 +${price}골드`, `Sold ${f.customName || KOR[f.species]} +${price} gold`));
   bumpStat("sold");
   for (let k = 0; k < 4; k++) {
     coins.push({ x: f.x + rnd(-4, 4), y: f.y + rnd(-3, 3), vy: -rnd(0.1, 0.3), life: rnd(500, 900), ghost: true });
@@ -874,7 +875,7 @@ function showToolbar() {
 }
 frameEl.addEventListener("mousemove", showToolbar);
 
-const SHEET_TITLES = { shop: "🏪 상점", dex: "📖 도감", ach: "🏆 업적", log: "📜 기록" };
+const SHEET_TITLES = { shop: tr("🏪 상점", "🏪 Shop"), dex: tr("📖 도감", "📖 Dex"), ach: tr("🏆 업적", "🏆 Awards"), log: tr("📜 기록", "📜 Log") };
 function openSheet(which) {
   S.sheetOpen = which;
   sheetEl.classList.add("open");
@@ -898,7 +899,15 @@ document.querySelectorAll(".menubtns [data-sheet]").forEach((b) =>
     else openSheet(b.dataset.sheet);
   }));
 document.getElementById("sheetClose").addEventListener("click", closeSheet);
-document.addEventListener("keydown", (e) => {
+
+// localize the static HTML shell (markup ships in Korean)
+if (LANG === "en") {
+  cv.setAttribute("aria-label", "Pixel-art cyber aquarium. Fish swim around; click to feed them.");
+  document.getElementById("fishChip").title = "fish+eggs / capacity";
+  const MENU_EN = { shop: "🏪 Shop", dex: "📖 Dex", ach: "🏆 Awards", log: "📜 Log" };
+  document.querySelectorAll(".menubtns [data-sheet]").forEach((b) => { b.textContent = MENU_EN[b.dataset.sheet]; });
+  document.getElementById("sheetClose").textContent = "✕ Close";
+}document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (S.popupFish) { closeFishPopup(); return; }
   if (S.sheetOpen) closeSheet();
@@ -910,17 +919,17 @@ function renderFeedBar() {
   feedbarEl.innerHTML = "";
   const lab = document.createElement("span");
   lab.className = "feedlab";
-  lab.textContent = "🍞 먹이";
-  lab.title = "물을 클릭하면 선택한 사료를 뿌립니다";
+  lab.textContent = tr("🍞 먹이", "🍞 Feed");
+  lab.title = tr("물을 클릭하면 선택한 사료를 뿌립니다", "Click water to scatter feed");
   feedbarEl.appendChild(lab);
   FEED_DEF.forEach((fd, i) => {
     const b = document.createElement("button");
     b.className = S.feedArmed && i === S.feedTier ? "on" : "";
-    b.title = `${fd.label} — 물 클릭으로 급여 (남은 ${S.save.feed[fd.key] || 0}알)`;
+    b.title = tr(`${fd.label} — 물 클릭으로 급여 (남은 ${S.save.feed[fd.key] || 0}알)`, `${fd.label} — click water to feed (${S.save.feed[fd.key] || 0} left)`);
     const dot = document.createElement("span");
     dot.className = "fdot";
     dot.style.background = fd.col[0];
-    b.append(dot, fd.label.replace(" 사료", ""), " ");
+    b.append(dot, fd.label.replace(tr(" 사료", " Feed"), ""), " ");
     const cnt = document.createElement("span");
     cnt.className = "cnt";
     cnt.textContent = `${S.save.feed[fd.key] || 0}`;
@@ -937,7 +946,7 @@ function renderFeedBar() {
       } else {
         S.feedTier = i;
         S.feedArmed = true;
-        toast("물을 클릭하면 먹이를 줘요 — 버튼을 다시 누르면 해제");
+        toast(tr("물을 클릭하면 먹이를 줘요 — 버튼을 다시 누르면 해제", "Click water to feed — press again to cancel"));
       }
       renderFeedBar();
     });
@@ -949,7 +958,7 @@ function renderFeedBar() {
 function feed(px) {
   const fd = FEED_DEF[S.feedTier];
   const stock = S.save.feed[fd.key] || 0;
-  if (stock <= 0) { toast(`${fd.label}가 없어요 — 상점에서 구매하세요`); return; }
+  if (stock <= 0) { toast(tr(`${fd.label}가 없어요 — 상점에서 구매하세요`, `Out of ${fd.label} — buy more in the shop`)); return; }
   const n = Math.min(stock, ri(3, 5));
   S.save.feed[fd.key] = stock - n;
   persist();
@@ -972,7 +981,7 @@ function summonShark() {
   if (S.shark) return;
   const dir = Math.random() < 0.5 ? 1 : -1;
   S.shark = { x: dir === 1 ? -30 : W + 30, y: rnd(30, 70), dir };
-  log("🦈 거대 상어 출현 — 물고기들이 흩어져요");
+  log(tr("🦈 거대 상어 출현 — 물고기들이 흩어져요", "🦈 Giant shark appeared — fish scatter"));
 }
 
 // ---------- S.raid ----------
@@ -1041,7 +1050,7 @@ function raidWin() {
   // one bounty egg drifts down — 35% legendary
   dropGradeEgg(Math.random() < 0.35 ? 2 : 0, rnd(40, 150), 26, rnd(20000, 32000));
   addGold(50); // S.raid victory bounty
-  log("🦈 레이드 승리 — 보상 알과 +50골드");
+  log(tr("🦈 레이드 승리 — 보상 알과 +50골드", "🦈 Raid won — bounty egg and +50 gold"));
   bumpStat("raidWins");
   // the whole tank celebrates
   for (const f of fishes) {
@@ -1060,7 +1069,7 @@ function raidFail() {
     if (d < bd) { bd = d; victim = f; }
   }
   if (victim) {
-    log(`🦈 레이드 실패 — ${victim.customName || KOR[victim.species]}을(를) 잃었어요`);
+    log(tr(`🦈 레이드 실패 — ${victim.customName || KOR[victim.species]}을(를) 잃었어요`, `🦈 Raid failed — lost ${victim.customName || KOR[victim.species]}`));
     dropFood(victim);
     fishes.splice(fishes.indexOf(victim), 1);
     for (let k = 0; k < 10; k++) {
@@ -1172,8 +1181,8 @@ function openChest() {
     coins.push({ x: CHEST.x + 6 + rnd(-3, 3), y: CHEST.y, vy: -rnd(0.15, 0.35), life: rnd(600, 1100) });
   }
   for (let i = 0; i < 5; i++) bubbles.push({ x: CHEST.x + 6 + rnd(-4, 4), y: CHEST.y, r: 1, ph: rnd(0, 6) });
-  toast(`보물상자 +${loot}🪙`);
-  log(`보물상자에서 ${loot}골드 획득`);
+  toast(tr(`보물상자 +${loot}🪙`, `Treasure chest +${loot}🪙`));
+  log(tr(`보물상자에서 ${loot}골드 획득`, `Got ${loot} gold from the treasure chest`));
   bumpStat("chests");
 }
 
@@ -1186,7 +1195,7 @@ function openNameInput(f) {
   inp.className = "name-input";
   inp.maxLength = 12;
   inp.value = f.customName || "";
-  inp.placeholder = "이름 지어주기";
+  inp.placeholder = tr("이름 지어주기", "Name this fish");
   const r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
   inp.style.left = (f.x / W * r.width + (r.left - wr.left)) + "px";
   inp.style.top = (f.y / S.H * r.height + (r.top - wr.top) - 10) + "px";
@@ -1336,7 +1345,7 @@ function openFishPopup(f) {
   head.append(popupSprite(f), `${f.customName || KOR[f.species]}${isCrowned(f) ? " 👑" : ""}`);
   const sat = document.createElement("div");
   sat.className = "prow";
-  sat.append(document.createTextNode("포만감"), document.createTextNode(`${Math.round(f.sat)}/100`));
+  sat.append(document.createTextNode(tr("포만감", "Satiety")), document.createTextNode(`${Math.round(f.sat)}/100`));
   const bar = document.createElement("div");
   bar.className = "pbar";
   const fill = document.createElement("i");
@@ -1344,27 +1353,27 @@ function openFishPopup(f) {
   bar.appendChild(fill);
   const crown = document.createElement("div");
   crown.className = "prow";
-  crown.append(document.createTextNode("왕관"),
-    document.createTextNode(isCrowned(f) ? "👑 달성" : `${f.ate}/${CROWN_AT}`));
+  crown.append(document.createTextNode(tr("왕관", "Crown")),
+    document.createTextNode(isCrowned(f) ? tr("👑 달성", "👑 Earned") : `${f.ate}/${CROWN_AT}`));
   const btns = document.createElement("div");
   btns.className = "pbtns";
   const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
   const sellB = document.createElement("button");
-  sellB.append(`판매 +${price}`, coinImg(9));
+  sellB.append(tr(`판매 +${price}`, `Sell +${price}`), coinImg(9));
   sellB.addEventListener("click", () => { closeFishPopup(); sellFish(f); });
   const nameB = document.createElement("button");
-  nameB.textContent = "이름";
+  nameB.textContent = tr("이름", "Name");
   if (f.ate >= LOVE_AT && !f.customName) nameB.classList.add("pulse");
   nameB.addEventListener("click", () => { closeFishPopup(); openNameInput(f); });
   const jailB = document.createElement("button");
-  jailB.textContent = "감옥";
-  if (SLOW_GIANTS.includes(f.species)) { jailB.disabled = true; jailB.title = "감옥 문보다 커요"; }
+  jailB.textContent = tr("감옥", "Jail");
+  if (SLOW_GIANTS.includes(f.species)) { jailB.disabled = true; jailB.title = tr("감옥 문보다 커요", "Too big for the jail door"); }
   jailB.addEventListener("click", () => {
     closeFishPopup();
     if (imprison(f)) {
       for (let k = 0; k < 4; k++) bubbles.push({ x: f.x, y: f.y, r: 1, ph: rnd(0, 6) });
     } else {
-      toast("감옥이 가득 찼어요");
+      toast(tr("감옥이 가득 찼어요", "Jail is full"));
     }
   });
   btns.append(sellB, nameB, jailB);
@@ -1448,8 +1457,8 @@ setInterval(() => {
     if (now - (f.lastAte || now) > CROWN_KEEP) {
       f.ate = CROWN_AT - 3;
       f.lastAte = now;
-      toast(`${f.customName || KOR[f.species]} 왕관이 빛을 잃었어요 — 먹이 3번이면 되찾아요`);
-      log(`${f.customName || KOR[f.species]} 왕관 소멸`);
+      toast(tr(`${f.customName || KOR[f.species]} 왕관이 빛을 잃었어요 — 먹이 3번이면 되찾아요`, `${f.customName || KOR[f.species]}'s crown dimmed — feed 3 times to restore`));
+      log(tr(`${f.customName || KOR[f.species]} 왕관 소멸`, `${f.customName || KOR[f.species]} lost the crown`));
     }
   }
 }, 5000);
@@ -1506,10 +1515,10 @@ if (!S.restored) {
   }
   // first-run guide: introduce the core loop one toast at a time
   [
-    "🖱️ 마우스를 움직이면 아래에 메뉴가 나타나요",
-    "🍞 먹이 버튼을 누른 뒤 물을 클릭하면 먹이를 줘요",
-    "🐟 물고기를 클릭하면 정보 카드가 열려요 — 이름짓기·판매·감옥",
-    "📦 보물상자를 클릭하면 골드가 나와요",
+    tr("🖱️ 마우스를 움직이면 아래에 메뉴가 나타나요", "🖱️ Move the mouse to reveal the menu below"),
+    tr("🍞 먹이 버튼을 누른 뒤 물을 클릭하면 먹이를 줘요", "🍞 Press the Feed button, then click the water to feed"),
+    tr("🐟 물고기를 클릭하면 정보 카드가 열려요 — 이름짓기·판매·감옥", "🐟 Click a fish to open its card — name, sell, jail"),
+    tr("📦 보물상자를 클릭하면 골드가 나와요", "📦 Click the treasure chest for gold"),
   ].forEach((m, i) => setTimeout(() => toast(m, true), 1500 + i * 3500));
 }
 // time passed while the app was closed: fast-forward it (fish/eggs restored above)

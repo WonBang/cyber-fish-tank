@@ -1,6 +1,10 @@
 import Cocoa
 import WebKit
 
+// Menubar menu follows the system language; the web UI reads localStorage "cft.lang".
+let isKorean = Locale.preferredLanguages.first?.lowercased().hasPrefix("ko") ?? false
+func loc(_ ko: String, _ en: String) -> String { isKorean ? ko : en }
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
     var statusItem: NSStatusItem!
     var popover: NSPopover!
@@ -87,11 +91,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     }
 
     func showMenu() {
+        // read the web UI's current language first so the submenu can check it
+        let js = "localStorage.getItem('cft.lang') || ((navigator.language || '').toLowerCase().indexOf('ko') === 0 ? 'ko' : 'en')"
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            self?.presentMenu(currentLang: result as? String ?? (isKorean ? "ko" : "en"))
+        }
+    }
+
+    func presentMenu(currentLang: String) {
         let menu = NSMenu()
-        menu.addItem(withTitle: "창으로 분리", action: #selector(detachToWindow), keyEquivalent: "d")
-        menu.addItem(withTitle: "새로고침", action: #selector(reloadTank), keyEquivalent: "r")
+        menu.addItem(withTitle: loc("창으로 분리", "Detach to Window"), action: #selector(detachToWindow), keyEquivalent: "d").target = self
+        menu.addItem(withTitle: loc("새로고침", "Reload"), action: #selector(reloadTank), keyEquivalent: "r").target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        let langMenu = NSMenu()
+        let koItem = NSMenuItem(title: "한국어", action: #selector(selectLanguage(_:)), keyEquivalent: "")
+        koItem.target = self
+        koItem.representedObject = "ko"
+        koItem.state = currentLang == "ko" ? .on : .off
+        let enItem = NSMenuItem(title: "English", action: #selector(selectLanguage(_:)), keyEquivalent: "")
+        enItem.target = self
+        enItem.representedObject = "en"
+        enItem.state = currentLang == "en" ? .on : .off
+        langMenu.addItem(koItem)
+        langMenu.addItem(enItem)
+        let langRoot = NSMenuItem(title: loc("언어", "Language"), action: nil, keyEquivalent: "")
+        langRoot.submenu = langMenu
+        menu.addItem(langRoot)
+
+        menu.addItem(.separator())
+        menu.addItem(withTitle: loc("종료", "Quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         statusItem.menu = nil
@@ -101,6 +130,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         loadTank()
     }
 
+    // Set the web UI language: same localStorage key + reload the in-page toggle uses
+    @objc func selectLanguage(_ sender: NSMenuItem) {
+        guard let lang = sender.representedObject as? String else { return }
+        let js = "localStorage.setItem('cft.lang', '\(lang)'); location.reload();"
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
     @objc func detachToWindow() {
         popover.performClose(nil)
         if detachedWindow == nil {
@@ -108,7 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
                 contentRect: NSRect(x: 0, y: 0, width: 720, height: 540),
                 styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
                 backing: .buffered, defer: false)
-            window.title = "Cyber Fish Tank"
+            window.title = loc("픽셀어항", "Pixel Aquarium")
             window.titlebarAppearsTransparent = true
             window.appearance = NSAppearance(named: .darkAqua)
             window.level = .floating

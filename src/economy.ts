@@ -1,6 +1,7 @@
 // economy data tables: feed, eggs, prices, localization
+import { LANG, tr } from "./i18n";
 
-export const KOR = {
+const NAMES_KO = {
   tetra: "테트라", guppy: "구피", angel: "엔젤피시", puffer: "복어", jelly: "해파리",
   crab: "게", whale: "고래", golden: "황금 물고기", starfish: "불가사리", seahorse: "해마",
   clown: "흰동가리", sword: "황새치", beluga: "벨루가",
@@ -17,11 +18,33 @@ export const KOR = {
   cod: "대구", icefish: "빙어", yellowtail: "방어",
 };
 
+const NAMES_EN = {
+  tetra: "Tetra", guppy: "Guppy", angel: "Angelfish", puffer: "Puffer", jelly: "Jellyfish",
+  crab: "Crab", whale: "Whale", golden: "Golden Fish", starfish: "Starfish", seahorse: "Seahorse",
+  clown: "Clownfish", sword: "Swordfish", beluga: "Beluga",
+  goldfish: "Goldfish", zebra: "Danio", molly: "Molly",
+  betta: "Betta", discus: "Discus", bluetang: "Blue Tang",
+  arowana: "Arowana", coelacanth: "Coelacanth", mola: "Sunfish",
+  hatchet: "Hatchet", angler: "Angler", gulper: "Gulper", oarfish: "Oarfish",
+  bluewhale: "Blue Whale", giantsquid: "Giant Squid",
+  cory: "Corydoras", catfish: "Catfish", lionfish: "Lionfish", moray: "Moray", octopus: "Octopus",
+  ray: "Stingray", turtle: "Sea Turtle", dolphin: "Dolphin", orca: "Orca", narwhal: "Narwhal",
+  cherrysalmon: "Cherry Salmon", seabream: "Sea Bream", butterflyfish: "Butterfly",
+  mackerel: "Mackerel", flyingfish: "Flying Fish", manta: "Manta Ray",
+  salmon: "Salmon", gizzardshad: "Shad", cutlass: "Cutlass",
+  cod: "Cod", icefish: "Smelt", yellowtail: "Yellowtail",
+};
+
+// localized species names (export name kept from the Korean-only era)
+export const KOR = LANG === "en" ? NAMES_EN : NAMES_KO;
+
 export const VARIED = ["tetra", "guppy", "angel", "seahorse"]; // species with random palettes
 
 // seasonal visitors: only enter egg pools during their real-world season
 // index matches seasonNow(): 0 겨울(12-2월) 1 봄(3-5월) 2 여름(6-8월) 3 가을(9-11월)
-export const SEASONS = ["겨울", "봄", "여름", "가을"];
+export const SEASONS = LANG === "en"
+  ? ["Winter", "Spring", "Summer", "Fall"]
+  : ["겨울", "봄", "여름", "가을"];
 export const SEASON_REQ = {
   cherrysalmon: 1, seabream: 1, butterflyfish: 1,
   mackerel: 2, flyingfish: 2, manta: 2,
@@ -31,16 +54,16 @@ export const SEASON_REQ = {
 
 export const FEED_DEF = [
   // daily > 0 → that many free claims per local calendar day, then paid at price
-  { key: "basic",  label: "일반 사료", price: 20,  daily: 20, pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
-  { key: "prime",  label: "고급 사료", price: 100, daily: 10, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
-  { key: "golden", label: "황금 사료", price: 300, daily: 0,  pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
+  { key: "basic",  label: tr("일반 사료", "Basic Feed"),  price: 20,  daily: 20, pack: 10, sat: 30, col: ["#e8a94e", "#ffd27a"] },
+  { key: "prime",  label: tr("고급 사료", "Prime Feed"), price: 100, daily: 10, pack: 10, sat: 45, col: ["#4fa8e0", "#9fd8ff"] },
+  { key: "golden", label: tr("황금 사료", "Golden Feed"),  price: 300, daily: 0,  pack: 10, sat: 60, col: ["#ffd54a", "#fff6c9"] },
 ];
 
 export const EGG_SHOP = [
-  { grade: 0, label: "일반 알", price: 100 },
-  { grade: 1, label: "고급 알", price: 300 },
-  { grade: 2, label: "전설 알", price: 900 },
-  { grade: 3, label: "신화 알", price: 2500 },
+  { grade: 0, label: tr("일반 알", "Common Egg"),    price: 100 },
+  { grade: 1, label: tr("고급 알", "Rare Egg"),      price: 300 },
+  { grade: 2, label: tr("전설 알", "Legend Egg"), price: 900 },
+  { grade: 3, label: tr("신화 알", "Mythic Egg"),    price: 2500 },
 ];
 
 export const EGG_POOLS = [
@@ -110,36 +133,40 @@ export const DEX_BONUS = {
 // achievements: tiers = [goal, gold reward]; stat "species"/"seasonal" are
 // computed from the dex, the rest accumulate in save.stats
 export const ACH_DEFS = [
-  { id: "fed",    icon: "🍞", name: "먹이 주기",      stat: "fed",
+  { id: "fed",    icon: "🍞", name: tr("먹이 주기", "Feeding"),      stat: "fed",
     tiers: [[50, 50], [150, 80], [400, 120], [1000, 200], [2000, 300], [3500, 450], [5000, 600], [7500, 800], [10000, 1000], [15000, 1500]] },
-  { id: "hatch",  icon: "🐣", name: "알 부화",        stat: "hatched",
+  { id: "hatch",  icon: "🐣", name: tr("알 부화", "Hatched"),        stat: "hatched",
     tiers: [[5, 60], [15, 100], [30, 150], [50, 250], [80, 350], [120, 500], [200, 700], [300, 900], [450, 1200], [600, 1500]] },
-  { id: "sell",   icon: "💰", name: "물고기 판매",    stat: "sold",
+  { id: "sell",   icon: "💰", name: tr("물고기 판매", "Sold"),    stat: "sold",
     tiers: [[5, 50], [15, 80], [30, 150], [60, 250], [100, 350], [150, 500], [250, 700], [400, 900], [600, 1200], [1000, 1500]] },
-  { id: "raid",   icon: "🦈", name: "레이드 승리",    stat: "raidWins", tiers: [[1, 100], [10, 500], [50, 2000]] },
-  { id: "jail",   icon: "⛓️", name: "노역 완수",      stat: "jailDone",
+  { id: "raid",   icon: "🦈", name: tr("레이드 승리", "Raid Wins"),    stat: "raidWins", tiers: [[1, 100], [10, 500], [50, 2000]] },
+  { id: "jail",   icon: "⛓️", name: tr("노역 완수", "Labor Done"),      stat: "jailDone",
     tiers: [[5, 40], [15, 60], [30, 100], [60, 180], [100, 250], [180, 350], [300, 500], [500, 700], [750, 900], [1000, 1200]] },
-  { id: "chest",  icon: "📦", name: "보물상자 열기",  stat: "chests",
+  { id: "chest",  icon: "📦", name: tr("보물상자 열기", "Chests"),  stat: "chests",
     tiers: [[10, 30], [30, 50], [75, 80], [150, 150], [300, 250], [500, 350], [800, 500], [1200, 650], [1700, 800], [2500, 1000]] },
-  { id: "dex",    icon: "📖", name: "도감 수집",      stat: "species",  tiers: [[10, 200], [25, 500], [40, 1500], [50, 3000]] },
-  { id: "season", icon: "🍂", name: "계절 한정 수집", stat: "seasonal", tiers: [[3, 300], [6, 800], [12, 2500]] },
-  { id: "color",  icon: "🎨", name: "색상 수집",      stat: "colors",   tiers: [[6, 100], [12, 250], [24, 600], [36, 1200], [48, 3000]] },
+  { id: "dex",    icon: "📖", name: tr("도감 수집", "Dex"),      stat: "species",  tiers: [[10, 200], [25, 500], [40, 1500], [50, 3000]] },
+  { id: "season", icon: "🍂", name: tr("계절 한정 수집", "Seasonal"), stat: "seasonal", tiers: [[3, 300], [6, 800], [12, 2500]] },
+  { id: "color",  icon: "🎨", name: tr("색상 수집", "Colors"),      stat: "colors",   tiers: [[6, 100], [12, 250], [24, 600], [36, 1200], [48, 3000]] },
 ];
 
 export const FRAME_SHOP = [
-  { key: "", label: "기본 프레임", price: 0 },
-  { key: "wood", label: "원목 프레임", price: 300 },
-  { key: "gold", label: "황금 프레임", price: 800 },
-  { key: "neon", label: "네온 프레임", price: 1500 },
+  { key: "", label: tr("기본 프레임", "Basic Frame"), price: 0 },
+  { key: "wood", label: tr("원목 프레임", "Wood Frame"), price: 300 },
+  { key: "gold", label: tr("황금 프레임", "Gold Frame"), price: 800 },
+  { key: "neon", label: tr("네온 프레임", "Neon Frame"), price: 1500 },
 ];
 
 export const DEPTH_SHOP = [
-  { label: "심해 1층", price: 1500 },
-  { label: "심해 2층", price: 4000 },
+  { label: tr("심해 1층", "Deep Sea 1"), price: 1500 },
+  { label: tr("심해 2층", "Deep Sea 2"), price: 4000 },
 ];
 
 export const GRADE_COLORS = ["#9fb6cc", "#46d8ff", "#ffd54a", "#ff6b9d"];
 
-export const TIER_LABELS = ["🥉 일반 등급", "🥈 고급 등급", "🥇 전설 등급", "🔮 신화 등급"];
+export const TIER_LABELS = LANG === "en"
+  ? ["🥉 Common", "🥈 Rare", "🥇 Legend", "🔮 Mythic"]
+  : ["🥉 일반 등급", "🥈 고급 등급", "🥇 전설 등급", "🔮 신화 등급"];
 
-export const GRADE_NAMES = ["일반 알", "고급 알", "전설 알", "신화 알"];
+export const GRADE_NAMES = LANG === "en"
+  ? ["Common Egg", "Rare Egg", "Legend Egg", "Mythic Egg"]
+  : ["일반 알", "고급 알", "전설 알", "신화 알"];
