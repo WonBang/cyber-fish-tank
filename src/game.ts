@@ -705,7 +705,11 @@ function closeSheet() {
   sheetEl.classList.remove("open");
 }
 document.querySelectorAll(".menubtns [data-sheet]").forEach((b) =>
-  b.addEventListener("click", () => openSheet(b.dataset.sheet)));
+  b.addEventListener("click", () => {
+    // pressing the active tab's button again closes the sheet
+    if (S.sheetOpen === b.dataset.sheet) closeSheet();
+    else openSheet(b.dataset.sheet);
+  }));
 document.getElementById("sheetClose").addEventListener("click", closeSheet);
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
