@@ -1063,7 +1063,8 @@ function imprison(f) {
   if (slot === -1) return false; // jail full
   JAIL.slots[slot] = f;
   f.jail = { slot, total: 0, sentence: 0 };
-  f.jail.total = f.jail.sentence = rnd(60000, 120000);
+  // 13.5-27s of sim time = 30s-1min of real time at the 45% pace
+  f.jail.total = f.jail.sentence = rnd(13500, 27000);
   f.knock = 0;
   dropFood(f);
   return true;
