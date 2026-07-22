@@ -129,8 +129,8 @@ export const ACH_DEFS = [
 export const FRAME_SHOP = [
   { key: "", label: "기본 프레임", price: 0 },
   { key: "wood", label: "원목 프레임", price: 300 },
-  { key: "neon", label: "네온 프레임", price: 800 },
-  { key: "gold", label: "황금 프레임", price: 1500 },
+  { key: "gold", label: "황금 프레임", price: 800 },
+  { key: "neon", label: "네온 프레임", price: 1500 },
 ];
 
 export const DEPTH_SHOP = [
