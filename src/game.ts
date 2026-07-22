@@ -1324,5 +1324,8 @@ if (!S.restored) {
 persistNow();
 requestAnimationFrame(loop);
 
+// debug console handle (harmless in production; used by automated tests)
+Object.assign(window, { __dbg: { S, fishes, makeFish, addFish, startRaid } });
+
 
 export { MANTIS, SAND_DWELLERS, SLOW_GIANTS, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, plants, updateNameTags };

@@ -5,7 +5,7 @@ import { rnd, ri } from "./utils";
 import { MIN_FISH } from "./palette";
 import { FEED_DEF, KOR } from "./economy";
 import { DEEP_REQ } from "./sprites";
-import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, SLOW_GIANTS, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold } from "./game";
+import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, SLOW_GIANTS, BOSS_HP, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold } from "./game";
 
 // ---------- update ----------
 function dropFood(f) {
