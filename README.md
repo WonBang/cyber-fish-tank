@@ -1,4 +1,4 @@
-# cyber-fish-tank 🐟
+# 픽셀어항 · Pixel Aquarium 🐟
 
 픽셀 아트로 만든 가벼운 관상용 사이버 어항입니다.
 
@@ -7,6 +7,15 @@
 켜두고 바라보기만 해도 좋지만, 자세히 보면 꽤 많은 일이 벌어지고 있습니다.
 
 **Live**: https://wonbang.github.io/cyber-fish-tank/
+
+## 다국어 지원 🌐
+
+한국어와 영어를 지원합니다. 브라우저(또는 macOS 시스템) 언어를 자동 감지해 시작하며,
+macOS 앱에서는 메뉴바 🐟 아이콘 우클릭 → **언어(Language)** 메뉴에서 한국어/English를 직접 선택할 수 있습니다.
+선택한 언어는 저장되어 다음 실행에도 유지됩니다.
+
+Korean and English are supported. The language is auto-detected from your browser
+(or macOS system) locale; in the menubar app, right-click the 🐟 icon → **Language** to switch.
 
 ## 어항 속 생물들
 
