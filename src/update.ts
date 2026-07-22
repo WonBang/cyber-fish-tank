@@ -5,7 +5,7 @@ import { rnd, ri } from "./utils";
 import { MIN_FISH } from "./palette";
 import { FEED_DEF, KOR } from "./economy";
 import { DEEP_REQ } from "./sprites";
-import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, SLOW_GIANTS, BOSS_HP, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold } from "./game";
+import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, SLOW_GIANTS, BOSS_HP, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, bumpStat } from "./game";
 
 // ---------- update ----------
 function dropFood(f) {
@@ -41,6 +41,7 @@ function eat(f, fl) {
   f.lastAte = Date.now();
   f.sat = Math.min(100, f.sat + FEED_DEF[fl.tier || 0].sat);
   f.dietTier = fl.tier || 0;
+  bumpStat("fed");
   if (f.ate >= LOVE_AT) hearts.push({ x: f.x, y: f.y - 5, life: 1100 });
   if (f.ate === CROWN_AT) {
     log(`${f.customName || KOR[f.species]} 왕관 획득 👑`);
@@ -243,6 +244,7 @@ function update(dt) {
         addGold(wage);
         toast(`${f.customName || KOR[f.species]} 노역 완료 +${wage}🪙`);
         log(`${f.customName || KOR[f.species]} 노역 완료 +${wage}골드`);
+        bumpStat("jailDone");
         for (let k = 0; k < 3; k++) {
           coins.push({ x: JAIL.right + 4 + rnd(-2, 2), y: floorY - 6, vy: -rnd(0.15, 0.3), life: rnd(500, 900), ghost: true });
         }

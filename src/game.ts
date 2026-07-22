@@ -2,9 +2,9 @@
 import { S } from "./state";
 import { FISH_PALETTES, MIN_FISH, NAMES } from "./palette";
 import { SPRITES, JELLY_FRAMES, CRAB_FRAMES, SHARK_SPRITE, SHARK_PAL, MANTIS_SPRITE, MANTIS_PAL, SPECIES_DEF, DEEP_REQ, EGG_ROWS, EGG_PALS, COIN_ROWS, COIN_COLORS } from "./sprites";
-import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES } from "./economy";
+import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES, SEASONS, SEASON_REQ, ACH_DEFS } from "./economy";
 import { W, BASE_H, BASE_SAND, LAYER_H, MAX_DEPTH, cv, cx, reduced } from "./canvas";
-import { rnd, ri, todayStr, fmtWhen } from "./utils";
+import { rnd, ri, todayStr, fmtWhen, seasonNow } from "./utils";
 import { px, drawWater, drawSand, drawPlant, drawRocks, drawSprite, drawEgg, drawFish, drawShark, drawRaid, drawJailBack, drawJailFront, drawCoins, drawChest } from "./draw";
 import { dropFood, queueCatchup } from "./update";
 import { loop } from "./render";
@@ -40,7 +40,7 @@ export const JAIL = { x: 2, w: 25, top: S.SAND_Y - 30, h: 30, right: 27 };
 JAIL.slots = [null, null, null]; // one prisoner per treadmill level
 const MANTIS = { cool: 0, show: 0, dir: 1 };
 const SAND_DWELLERS = ["crab", "starfish"];
-const SLOW_GIANTS = ["whale", "beluga", "mola", "bluewhale", "giantsquid"]; // slow drifters, too big for the jail door
+const SLOW_GIANTS = ["whale", "beluga", "mola", "bluewhale", "giantsquid", "dolphin", "orca", "narwhal", "manta", "turtle"]; // slow drifters, too big for the jail door
 
 function pickSpecies() {
   const total = SPECIES_DEF.reduce((s, d) => s + d.w, 0);
@@ -84,6 +84,11 @@ function makeFish(forceKey) {
   if (def.key === "starfish") { f.y = S.SAND_Y - 3; f.speed = rnd(0.008, 0.018); }
   if (def.key === "seahorse") { f.speed = rnd(0.03, 0.06); }
   if (def.key === "sword") { f.speed = rnd(0.45, 0.7); } // fastest fish in the tank
+  if (def.key === "ray") { f.speed = rnd(0.09, 0.15); }
+  if (def.key === "octopus") { f.speed = rnd(0.05, 0.1); }
+  if (def.key === "moray") { f.speed = rnd(0.14, 0.26); }
+  if (def.key === "cutlass") { f.speed = rnd(0.2, 0.35); }
+  if (def.key === "dolphin") { f.speed = rnd(0.3, 0.45); } // big but quick
   if (DEEP_REQ[def.key] && S.tankDepth > 0) { f.y = rnd(BASE_SAND + 4, S.SAND_Y - 6); } // born in the abyss
   return f;
 }
@@ -173,6 +178,9 @@ if (typeof S.save.dex !== "object" || !S.save.dex) S.save.dex = {};
 if (typeof S.save.feed !== "object" || !S.save.feed) S.save.feed = { basic: 30, prime: 0, golden: 0 };
 if (typeof S.save.ration !== "object" || !S.save.ration) S.save.ration = { date: "", basic: 0, prime: 0 };
 if (!Array.isArray(S.save.hatchLog)) S.save.hatchLog = [];
+S.save.stats = Object.assign({ fed: 0, hatched: 0, sold: 0, raidWins: 0, jailDone: 0, chests: 0 }, S.save.stats || {});
+if (typeof S.save.ach !== "object" || !S.save.ach) S.save.ach = {}; // id -> claimed tier count
+if (typeof S.save.achNoted !== "object" || !S.save.achNoted) S.save.achNoted = {}; // id -> toasted tier count
 // scrub old english debug-flavor entries from existing saves
 if (Array.isArray(S.save.log)) {
   S.save.log = S.save.log.filter((ev) => ev && typeof ev.m === "string" &&
@@ -209,6 +217,7 @@ const goldEl = document.getElementById("goldAmt");
 const toastsEl = document.getElementById("toasts");
 const shopBody = document.getElementById("shopBody");
 const dexBody = document.getElementById("dexBody");
+const achBody = document.getElementById("achBody");
 const frameEl = document.getElementById("frame");
 const toolbarEl = document.getElementById("toolbar");
 const sheetEl = document.getElementById("sheet");
@@ -219,6 +228,13 @@ S.feedTier = 0; // which feed the next water click scatters
 S.feedArmed = false; // feeding only happens while a feed button is armed
 
 function renderGold() { goldEl.textContent = S.save.gold; }
+const fishCntEl = document.getElementById("fishCnt");
+function renderFishCount() {
+  const n = fishes.length + eggs.length;
+  fishCntEl.textContent = `${n}/${S.CAP}`;
+  fishCntEl.parentElement.classList.toggle("full", n >= S.CAP);
+}
+setInterval(renderFishCount, 1000); // fish counts change from many code paths — poll instead of hooking each
 function addGold(n) { S.save.gold += n; renderGold(); persist(); }
 
 // pixel coin icon for the UI, baked from the in-tank coin sprite
@@ -274,9 +290,81 @@ function discover(species, palIdx) {
   }
   else if (VARIED.includes(species)) { addGold(5); toast(`새 색상 발견: ${KOR[species]} +5🪙`); }
   persist();
+  checkAchToasts();
   renderDex();
 }
 function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
+
+// ---------- achievements ----------
+const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ", "Ⅸ", "Ⅹ"];
+function statVal(stat) {
+  if (stat === "species") return SPECIES_DEF.filter(d => (S.save.dex[d.key] || []).length > 0).length;
+  if (stat === "seasonal") return SPECIES_DEF.filter(d => SEASON_REQ[d.key] != null && (S.save.dex[d.key] || []).length > 0).length;
+  return S.save.stats[stat] || 0;
+}
+function checkAchToasts() {
+  for (const a of ACH_DEFS) {
+    const next = Math.max(S.save.ach[a.id] || 0, S.save.achNoted[a.id] || 0);
+    if (next >= a.tiers.length) continue;
+    if (statVal(a.stat) >= a.tiers[next][0]) {
+      S.save.achNoted[a.id] = next + 1;
+      toast(`🏆 업적 달성: ${a.name} ${ROMAN[next]} — 업적 탭에서 보상 수령`);
+      log(`🏆 업적 달성: ${a.name} ${ROMAN[next]}`);
+    }
+  }
+}
+function bumpStat(k, n = 1) {
+  S.save.stats[k] = (S.save.stats[k] || 0) + n;
+  persist();
+  checkAchToasts();
+}
+function renderAch() {
+  achBody.innerHTML = "";
+  const doneCnt = ACH_DEFS.reduce((s, a) => s + (S.save.ach[a.id] || 0), 0);
+  const total = ACH_DEFS.reduce((s, a) => s + a.tiers.length, 0);
+  const sum = document.createElement("div");
+  sum.className = "sect";
+  sum.textContent = `🏆 달성 ${doneCnt}/${total}`;
+  achBody.appendChild(sum);
+  for (const a of ACH_DEFS) {
+    const claimed = S.save.ach[a.id] || 0;
+    const row = document.createElement("div");
+    row.className = "item achitem";
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    if (claimed >= a.tiers.length) {
+      nm.textContent = `${a.icon} ${a.name} — 완료 ✓`;
+      row.appendChild(nm);
+      achBody.appendChild(row);
+      continue;
+    }
+    const [goal, reward] = a.tiers[claimed];
+    const val = statVal(a.stat);
+    nm.textContent = `${a.icon} ${a.name} ${ROMAN[claimed]} (${Math.min(val, goal)}/${goal})`;
+    const pr = document.createElement("span");
+    pr.className = "pr";
+    pr.append(`+${reward}`, coinImg(10));
+    const b = document.createElement("button");
+    b.textContent = "받기";
+    b.disabled = val < goal;
+    b.addEventListener("click", () => {
+      if (statVal(a.stat) < goal) return;
+      S.save.ach[a.id] = claimed + 1;
+      addGold(reward);
+      toast(`🏆 ${a.name} ${ROMAN[claimed]} 보상 +${reward}🪙`);
+      log(`🏆 업적 보상: ${a.name} ${ROMAN[claimed]} +${reward}골드`);
+      renderAch();
+    });
+    row.append(nm, pr, b);
+    achBody.appendChild(row);
+    const bar = document.createElement("div");
+    bar.className = "pbar achbar";
+    const fill = document.createElement("i");
+    fill.style.width = Math.max(0, Math.min(100, Math.round(val / goal * 100))) + "%";
+    bar.appendChild(fill);
+    achBody.appendChild(bar);
+  }
+}
 
 // feed tiers: pure buff — no starvation penalty, satiety just gates breeding
 function rationLeft(item) {
@@ -288,7 +376,9 @@ const BREED_SAT = 60;
 // rarer fish just take a bigger share as the grade goes up
 // deep-sea species only enter a pool once their layer is open
 function availablePool(grade) {
-  return (EGG_POOLS[grade] || EGG_POOLS[0]).filter(([k]) => !DEEP_REQ[k] || S.save.depth >= DEEP_REQ[k]);
+  return (EGG_POOLS[grade] || EGG_POOLS[0]).filter(([k]) =>
+    (!DEEP_REQ[k] || S.save.depth >= DEEP_REQ[k]) &&
+    (SEASON_REQ[k] == null || SEASON_REQ[k] === seasonNow()));
 }
 // parent diet (lower of the pair) caps the egg grade; richer feed only raises the odds
 function rollEggGrade(diet, crowns) {
@@ -462,6 +552,10 @@ function renderShop() {
     shopBody.appendChild(s);
   };
   sect("🥚 물고기 알", "sect-egg");
+  const seasonNote = document.createElement("div");
+  seasonNote.className = "odds";
+  seasonNote.textContent = `지금은 ${SEASONS[seasonNow()]} — 계절 한정 어종이 알에서 나와요`;
+  shopBody.appendChild(seasonNote);
   for (const it of EGG_SHOP) {
     shopBody.appendChild(shopRow(it.label, it.price, "구매", () => buyEgg(it)));
     shopBody.appendChild(eggOddsRow(it.grade));
@@ -562,11 +656,12 @@ function dexGrid(defs) {
     const sub = document.createElement("div");
     sub.className = "dnm";
     sub.style.color = "#7fa3c8";
+    const seasonTag = SEASON_REQ[d.key] != null ? `${SEASONS[SEASON_REQ[d.key]]} 한정` : "";
     sub.textContent = found
       ? (VARIED.includes(d.key)
         ? `색 ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`
-        : "발견")
-      : "미발견";
+        : seasonTag || "발견")
+      : seasonTag ? `미발견 · ${seasonTag}` : "미발견";
     cell.append(mc, nm, sub);
     if (found) {
       const pr = document.createElement("div");
@@ -584,6 +679,7 @@ function recordHatch(egg, species) {
   const g = egg.grade == null ? -1 : egg.grade;
   S.save.hatchLog.unshift({ g, s: species, ts: Date.now() });
   if (S.save.hatchLog.length > 60) S.save.hatchLog.length = 60; // keep the last 60
+  bumpStat("hatched");
   persist();
   toast(`${g >= 0 ? GRADE_NAMES[g] : "알"} 부화 → ${KOR[species]}!`);
 }
@@ -661,6 +757,7 @@ function sellFish(f) {
   addGold(price);
   toast(`${f.customName || KOR[f.species]} 판매 +${price}🪙`);
   log(`${f.customName || KOR[f.species]} 판매 +${price}골드`);
+  bumpStat("sold");
   for (let k = 0; k < 4; k++) {
     coins.push({ x: f.x + rnd(-4, 4), y: f.y + rnd(-3, 3), vy: -rnd(0.1, 0.3), life: rnd(500, 900), ghost: true });
   }
@@ -689,15 +786,16 @@ function showToolbar() {
 }
 frameEl.addEventListener("mousemove", showToolbar);
 
-const SHEET_TITLES = { shop: "🏪 상점", dex: "📖 도감", log: "📜 기록" };
+const SHEET_TITLES = { shop: "🏪 상점", dex: "📖 도감", ach: "🏆 업적", log: "📜 기록" };
 function openSheet(which) {
   S.sheetOpen = which;
   sheetEl.classList.add("open");
   sheetTitleEl.textContent = SHEET_TITLES[which];
   shopBody.classList.toggle("hidden", which !== "shop");
   dexBody.classList.toggle("hidden", which !== "dex");
+  achBody.classList.toggle("hidden", which !== "ach");
   logBody.classList.toggle("hidden", which !== "log");
-  ({ shop: renderShop, dex: renderDex, log: renderLog })[which]();
+  ({ shop: renderShop, dex: renderDex, ach: renderAch, log: renderLog })[which]();
   closeFishPopup();
   showToolbar();
 }
@@ -856,6 +954,7 @@ function raidWin() {
   dropGradeEgg(Math.random() < 0.35 ? 2 : 0, rnd(40, 150), 26, rnd(20000, 32000));
   addGold(50); // S.raid victory bounty
   log("🦈 레이드 승리 — 보상 알과 +50골드");
+  bumpStat("raidWins");
   // the whole tank celebrates
   for (const f of fishes) {
     hearts.push({ x: f.x, y: f.y - 5, life: rnd(900, 1600) });
@@ -987,6 +1086,7 @@ function openChest() {
   for (let i = 0; i < 5; i++) bubbles.push({ x: CHEST.x + 6 + rnd(-4, 4), y: CHEST.y, r: 1, ph: rnd(0, 6) });
   toast(`보물상자 +${loot}🪙`);
   log(`보물상자에서 ${loot}골드 획득`);
+  bumpStat("chests");
 }
 
 // ---------- naming (affection) ----------
@@ -1247,6 +1347,7 @@ S.lastT = performance.now();
 // ---------- boot ----------
 document.getElementById("goldChip").prepend(coinImg(13));
 renderGold();
+renderFishCount();
 renderShop();
 renderDex();
 renderFeedBar();
@@ -1333,4 +1434,4 @@ requestAnimationFrame(loop);
 Object.assign(window, { __dbg: { S, fishes, makeFish, addFish, startRaid } });
 
 
-export { MANTIS, SAND_DWELLERS, SLOW_GIANTS, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, plants, updateNameTags };
+export { MANTIS, SAND_DWELLERS, SLOW_GIANTS, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, plants, updateNameTags, bumpStat };

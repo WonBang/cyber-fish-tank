@@ -4,6 +4,9 @@ export function ri(a, b) { return Math.floor(rnd(a, b + 1)); }
 
 export function todayStr() { return new Date().toLocaleDateString("en-CA"); }
 
+// 0 겨울(12-2월) 1 봄(3-5월) 2 여름(6-8월) 3 가을(9-11월)
+export function seasonNow() { return Math.floor(((new Date().getMonth() + 1) % 12) / 3); }
+
 export function fmtWhen(ts) {
   const d = new Date(ts);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
