@@ -285,7 +285,7 @@ function discover(species, palIdx) {
   if (isNewSpecies) {
     const bonus = DEX_BONUS[species] || 30;
     addGold(bonus);
-    toast(`도감 등록: ${KOR[species]} +${bonus}🪙`);
+    showDexCard(species, idx);
     log(`📖 도감 등록: ${KOR[species]} +${bonus}골드`);
   }
   else if (VARIED.includes(species)) { addGold(5); toast(`새 색상 발견: ${KOR[species]} +5🪙`); }
@@ -674,6 +674,93 @@ function dexGrid(defs) {
   }
   return grid;
 }
+
+// ---------- new-species discovery card ----------
+// popup card on first discovery; queued so back-to-back finds show one at a time
+const dexCardEl = document.getElementById("dexCard");
+const dexCardQueue = [];
+let dexCardTimer = 0;
+
+function showDexCard(species, palIdx) {
+  dexCardQueue.push({ species, palIdx });
+  if (dexCardEl.classList.contains("hidden")) nextDexCard();
+}
+
+function nextDexCard() {
+  const item = dexCardQueue.shift();
+  if (!item) { dexCardEl.classList.add("hidden"); return; }
+  const d = SPECIES_DEF.find(x => x.key === item.species);
+  const tier = Math.max(0, tierOf(item.species));
+  const pal = d.pal || FISH_PALETTES[item.palIdx >= 0 ? item.palIdx : 0];
+  dexCardEl.innerHTML = "";
+  dexCardEl.classList.remove("hidden", "out");
+
+  const head = document.createElement("div");
+  head.className = "dchead";
+  head.textContent = "✨ 새로운 물고기 발견! ✨";
+
+  const rows = dexSprite(item.species);
+  const s = 6;
+  const mc = document.createElement("canvas");
+  mc.width = rows[0].length * s;
+  mc.height = rows.length * s;
+  const mcx = mc.getContext("2d");
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < rows[r].length; c++) {
+      const ch = rows[r][c];
+      if (ch === ".") continue;
+      mcx.fillStyle = ch === "b" ? pal.b : ch === "f" ? pal.f : ch === "d" ? pal.d :
+        ch === "e" ? "#0a0e14" : "#e8f2fa";
+      mcx.fillRect(c * s, r * s, s, s);
+    }
+  }
+
+  const nm = document.createElement("div");
+  nm.className = "dcname";
+  nm.textContent = KOR[item.species];
+
+  const tr = document.createElement("div");
+  tr.className = "dctier";
+  tr.textContent = TIER_LABELS[tier];
+  tr.style.color = GRADE_COLORS[tier];
+
+  dexCardEl.append(head, mc, nm, tr);
+
+  const seasonTag = SEASON_REQ[item.species] != null ? `${SEASONS[SEASON_REQ[item.species]]} 한정` : "";
+  if (seasonTag) {
+    const se = document.createElement("div");
+    se.className = "dcrow";
+    se.append("계절", seasonTag);
+    dexCardEl.appendChild(se);
+  }
+  const bo = document.createElement("div");
+  bo.className = "dcrow";
+  const bv = document.createElement("span");
+  bv.append(`+${DEX_BONUS[item.species] || 30}`, coinImg(9));
+  bo.append("도감 보너스", bv);
+  const pr = document.createElement("div");
+  pr.className = "dcrow";
+  const pv = document.createElement("span");
+  pv.append(`${SELL_PRICE[item.species] || 40}`, coinImg(9));
+  pr.append("판매가", pv);
+
+  const hint = document.createElement("div");
+  hint.className = "dchint";
+  hint.textContent = "클릭해서 닫기";
+  dexCardEl.append(bo, pr, hint);
+
+  clearTimeout(dexCardTimer);
+  dexCardTimer = setTimeout(closeDexCard, 4200);
+}
+
+function closeDexCard() {
+  clearTimeout(dexCardTimer);
+  if (dexCardEl.classList.contains("hidden") || dexCardEl.classList.contains("out")) return;
+  dexCardEl.classList.add("out");
+  setTimeout(() => nextDexCard(), 240);
+}
+
+dexCardEl.addEventListener("click", closeDexCard);
 
 // ---------- hatch history ----------
 function recordHatch(egg, species) {
