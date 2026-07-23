@@ -11,12 +11,18 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION=0.3.0
+VERSION=0.4.0
 APP=CyberFishTank.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-swiftc -O CyberFishTank.swift -o "$APP/Contents/MacOS/CyberFishTank"
+# Universal binary pinned to macOS 12.0 (must match LSMinimumSystemVersion below);
+# without -target, swiftc stamps the host OS as minos and older Macs refuse to launch.
+swiftc -O -target arm64-apple-macos12.0 CyberFishTank.swift -o "$APP/Contents/MacOS/CyberFishTank-arm64"
+swiftc -O -target x86_64-apple-macos12.0 CyberFishTank.swift -o "$APP/Contents/MacOS/CyberFishTank-x86_64"
+lipo -create "$APP/Contents/MacOS/CyberFishTank-arm64" "$APP/Contents/MacOS/CyberFishTank-x86_64" \
+    -output "$APP/Contents/MacOS/CyberFishTank"
+rm "$APP/Contents/MacOS/CyberFishTank-arm64" "$APP/Contents/MacOS/CyberFishTank-x86_64"
 
 ( cd .. && npm run build --silent )
 cp -R ../dist/. "$APP/Contents/Resources/"
