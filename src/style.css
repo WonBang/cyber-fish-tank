@@ -75,7 +75,7 @@
   .sheet {
     position: absolute;
     top: 0; right: 0; bottom: 0;
-    width: 252px;
+    width: min(252px, 100%);
     z-index: 25;
     display: flex;
     flex-direction: column;
@@ -447,6 +447,24 @@
     border-radius: 4px;
     padding: 3px 6px;
     outline: none;
+  }
+  /* narrow window: stack feedbar above menu buttons, shrink chrome */
+  @media (max-width: 460px) {
+    .toolbar { flex-wrap: wrap; gap: 5px; padding: 8px 8px 6px; }
+    .toolbar .feedbar { flex: 1 1 100%; }
+    .menubtns { flex: 1 1 100%; }
+    .menubtns button { flex: 1; padding: 4px 4px; font-size: 11px; }
+    .goldchip, .fishchip { font-size: 11px; padding: 2px 7px; }
+    .toasts { bottom: 72px; }
+  }
+  @media (max-width: 300px) {
+    .menubtns { flex-wrap: wrap; }
+    .menubtns button { flex: 1 1 40%; }
+  }
+  /* short window: tighter toolbar */
+  @media (max-height: 320px) {
+    .toolbar { padding: 6px 8px 4px; }
+    .menubtns button { padding: 2px 6px; }
   }
   .scanlines {
     position: absolute; inset: 0; pointer-events: none;

@@ -142,10 +142,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         if detachedWindow == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 720, height: 540),
-                styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+                styleMask: [.titled, .closable, .resizable],
                 backing: .buffered, defer: false)
             window.title = loc("픽셀어항", "Pixel Aquarium")
-            window.titlebarAppearsTransparent = true
             window.appearance = NSAppearance(named: .darkAqua)
             window.level = .floating
             window.isReleasedWhenClosed = false
