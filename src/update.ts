@@ -388,8 +388,8 @@ function update(dt) {
         }
       } else if (f.retarget <= 0) {
         f.retarget = rnd(2000, 6000);
-        // deep dwellers stay below the old floor line; everyone else roams the full column
-        f.targetY = DEEP_REQ[f.species] && S.tankDepth > 0
+        // deep dwellers prefer the abyss but roam freely — 70% deep, 30% upper outing
+        f.targetY = DEEP_REQ[f.species] && S.tankDepth > 0 && Math.random() < 0.7
           ? rnd(BASE_SAND + 4, S.SAND_Y - 8)
           : rnd(14, S.SAND_Y - 14);
         if (Math.random() < 0.35) f.dir *= -1;
@@ -416,7 +416,7 @@ function update(dt) {
     f.y += ((f.targetY - f.y) * (f.food ? 0.009 : 0.0009) + Math.sin(S.t * 0.004 + f.phase) * 0.004) * dt * 0.6;
     if (f.x < 12) { f.x = 12; f.dir = 1; }
     if (f.x > W - 12) { f.x = W - 12; f.dir = -1; }
-    f.y = Math.max(DEEP_REQ[f.species] && S.tankDepth > 0 ? BASE_SAND + 3 : 10, Math.min(S.SAND_Y - 8, f.y));
+    f.y = Math.max(10, Math.min(S.SAND_Y - 8, f.y));
   }
 
   // free fish keep clear of the jail block
