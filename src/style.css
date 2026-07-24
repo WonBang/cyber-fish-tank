@@ -72,6 +72,18 @@
     cursor: pointer;
   }
   .menubtns button:hover { border-color: #46d8ff; }
+  .menubtns button.badge { position: relative; }
+  .menubtns button.badge::after {
+    content: "";
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff4d4d;
+    box-shadow: 0 0 4px #ff4d4d;
+  }
   .sheet {
     position: absolute;
     top: 0; right: 0; bottom: 0;

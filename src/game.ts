@@ -304,6 +304,16 @@ function statVal(stat) {
   if (stat === "colors") return VARIED.reduce((s, k) => s + (S.save.dex[k] || []).filter(i => i >= 0).length, 0);
   return S.save.stats[stat] || 0;
 }
+function achClaimable() {
+  return ACH_DEFS.some(a => {
+    const claimed = S.save.ach[a.id] || 0;
+    return claimed < a.tiers.length && statVal(a.stat) >= a.tiers[claimed][0];
+  });
+}
+function updateAchBadge() {
+  const btn = document.querySelector('.menubtns [data-sheet="ach"]');
+  if (btn) btn.classList.toggle("badge", achClaimable());
+}
 function checkAchToasts() {
   for (const a of ACH_DEFS) {
     const next = Math.max(S.save.ach[a.id] || 0, S.save.achNoted[a.id] || 0);
@@ -314,7 +324,9 @@ function checkAchToasts() {
       log(tr(`🏆 업적 달성: ${a.name} ${ROMAN[next]}`, `🏆 Achievement: ${a.name} ${ROMAN[next]}`));
     }
   }
+  updateAchBadge();
 }
+updateAchBadge(); // initial badge state on load
 function bumpStat(k, n = 1) {
   S.save.stats[k] = (S.save.stats[k] || 0) + n;
   persist();
@@ -355,6 +367,7 @@ function renderAch() {
       addGold(reward);
       toast(tr(`🏆 ${a.name} ${ROMAN[claimed]} 보상 +${reward}🪙`, `🏆 ${a.name} ${ROMAN[claimed]} reward +${reward}🪙`));
       log(tr(`🏆 업적 보상: ${a.name} ${ROMAN[claimed]} +${reward}골드`, `🏆 Achievement reward: ${a.name} ${ROMAN[claimed]} +${reward} gold`));
+      updateAchBadge();
       renderAch();
     });
     row.append(nm, pr, b);
