@@ -423,15 +423,36 @@
     cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" shape-rendering="crispEdges"><g stroke="%23052235" stroke-width="1"><circle cx="12" cy="12" r="5" fill="%23e8a33d"/><circle cx="10" cy="10" r="1.6" fill="%23ffd98a" stroke="none"/></g><rect x="4" y="3" width="2" height="2" fill="%23e8a33d"/><rect x="19" y="6" width="2" height="2" fill="%23e8a33d"/><rect x="17" y="19" width="2" height="2" fill="%23e8a33d"/><rect x="3" y="17" width="2" height="2" fill="%23e8a33d"/></svg>') 12 12, crosshair;
   }
   /* #compact: compact drawer layout for the menubar popover */
-  body.compact .frame,
-  body.compact .frame.skin-wood,
-  body.compact .frame.skin-neon,
-  body.compact .frame.skin-gold {
+  body.compact .frame {
     margin: 0;
     padding: 0;
     border: none;
     border-radius: 0;
     box-shadow: none;
+  }
+  /* purchased frame skins stay visible in compact mode as a slim border */
+  body.compact .frame.skin-wood,
+  body.compact .frame.skin-neon,
+  body.compact .frame.skin-gold {
+    padding: 4px;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 8px;
+  }
+  body.compact .frame.skin-wood {
+    border-color: #8a6236;
+    background: linear-gradient(180deg, #7a5a34, #4a3419);
+    box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.25);
+  }
+  body.compact .frame.skin-neon {
+    border-color: rgba(70, 216, 255, 0.7);
+    background: #10182e;
+    box-shadow: inset 0 0 14px rgba(70, 216, 255, 0.35);
+  }
+  body.compact .frame.skin-gold {
+    border-color: #d9ab35;
+    background: linear-gradient(180deg, #b98f2a, #7a5a1c);
+    box-shadow: inset 0 1px 0 rgba(255, 235, 170, 0.3);
   }
   body.compact .tankwrap { border-radius: 0; margin: 0 auto; }
   body.compact .menubtns button,
