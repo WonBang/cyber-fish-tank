@@ -697,12 +697,16 @@ function dexGrid(defs) {
     sub.className = "dnm";
     sub.style.color = "#7fa3c8";
     const seasonTag = SEASON_REQ[d.key] != null ? tr(`${SEASONS[SEASON_REQ[d.key]]} 한정`, `${SEASONS[SEASON_REQ[d.key]]} only`) : "";
-    // hybrids: the recipe stays hidden until the fish is bred once
+    // hybrids: each parent's slot in the recipe is revealed once that
+    // parent species is in the dex; the full recipe shows after first hatch
     const hyb = HYBRIDS.find(h => h.key === d.key);
+    const hybHint = () => {
+      const names = hyb.parents.map(p => (S.save.dex[p] || []).length ? KOR[p] : "???");
+      if (names.every(n => n === "???")) return tr("교배로만 획득 — 조합 ???", "Breeding only — recipe ???");
+      return tr(`교배: ${names[0]} + ${names[1]}`, `Breed: ${names[0]} + ${names[1]}`);
+    };
     sub.textContent = hyb
-      ? (found
-        ? `${KOR[hyb.parents[0]]} + ${KOR[hyb.parents[1]]}`
-        : tr("교배로만 획득 — 조합 ???", "Breeding only — recipe ???"))
+      ? (found ? `${KOR[hyb.parents[0]]} + ${KOR[hyb.parents[1]]}` : hybHint())
       : found
       ? (VARIED.includes(d.key)
         ? tr(`색 ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`, `Colors ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`)
