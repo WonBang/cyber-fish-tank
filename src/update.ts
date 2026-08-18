@@ -6,7 +6,7 @@ import { MIN_FISH } from "./palette";
 import { FEED_DEF, KOR, HYBRIDS } from "./economy";
 import { tr } from "./i18n";
 import { DEEP_REQ, SPECIES_DEF } from "./sprites";
-import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, JELLYS, SLOW_GIANTS, BOSS_HP, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, bumpStat } from "./game";
+import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, JELLYS, SLOW_GIANTS, BOSS_HP, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, tryBreedPair, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, bumpStat } from "./game";
 
 // ---------- update ----------
 function dropFood(f) {
@@ -166,40 +166,9 @@ function update(dt) {
       for (let i = 0; i < fishes.length; i++) {
         for (let j = i + 1; j < fishes.length; j++) {
           const a = fishes[i], b = fishes[j];
-          if (a.jail || b.jail || a.dragged || b.dragged) continue;
-          if (a.sat < BREED_SAT || b.sat < BREED_SAT) continue; // both must be well fed
+          if (a.dragged || b.dragged) continue;
           if (Math.hypot(a.x - b.x, a.y - b.y) >= 24) continue;
-          if (a.species === b.species) {
-            if (SAND_DWELLERS.includes(a.species) || JELLYS.includes(a.species)) continue;
-            // diet of the lesser-fed parent caps the egg grade; crowns tilt the odds up
-            const grade = rollEggGrade(Math.min(a.dietTier, b.dietTier),
-              (isCrowned(a) ? 1 : 0) + (isCrowned(b) ? 1 : 0));
-            const n = ri(1, 2);
-            for (let k = 0; k < n; k++) {
-              dropGradeEgg(grade, (a.x + b.x) / 2 + rnd(-4, 4), (a.y + b.y) / 2, rnd(22000, 38000));
-            }
-            a.sat -= BREED_SAT; b.sat -= BREED_SAT; // laying takes it out of them — feed again
-            break outer;
-          }
-          // cross-species: only recipe pairs may lay a hybrid egg
-          const rec = HYBRIDS.find(h =>
-            (h.parents[0] === a.species && h.parents[1] === b.species) ||
-            (h.parents[1] === a.species && h.parents[0] === b.species));
-          if (!rec) continue;
-          a.sat -= BREED_SAT; b.sat -= BREED_SAT;
-          const chance = rec.chance + 0.05 * Math.min(a.dietTier, b.dietTier); // feed raises, never guarantees
-          if (Math.random() < chance) {
-            const def = SPECIES_DEF.find(d => d.key === rec.key);
-            eggs.push({
-              x: (a.x + b.x) / 2 + rnd(-4, 4), y: (a.y + b.y) / 2,
-              hatch: rnd(22000, 38000), species: rec.key, pal: def.pal, palIdx: -1, hybrid: true,
-            });
-            hearts.push({ x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 5, life: 1400 });
-          } else {
-            // the pair is a real recipe but the roll failed — broken heart says "retry"
-            hearts.push({ x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 5, life: 1400, broken: true });
-          }
-          break outer;
+          if (tryBreedPair(a, b)) break outer;
         }
       }
     }

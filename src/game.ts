@@ -429,6 +429,48 @@ function rollEggSpecies(grade) {
   for (const [key, w] of pool) { roll -= w; if (roll <= 0) return key; }
   return pool[0][0];
 }
+// what a pair could produce: "same" (species egg), "hybrid" (recipe), or ""
+function pairKind(a, b) {
+  if (a.species === b.species) {
+    return SAND_DWELLERS.includes(a.species) || JELLYS.includes(a.species) ? "" : "same";
+  }
+  return HYBRIDS.some(h =>
+    (h.parents[0] === a.species && h.parents[1] === b.species) ||
+    (h.parents[1] === a.species && h.parents[0] === b.species)) ? "hybrid" : "";
+}
+
+// run one breeding judgment on a specific pair right now; returns true if it fired
+// (shared by the periodic tick and drag-drop pairing — same rules everywhere)
+function tryBreedPair(a, b) {
+  if (S.raid || eggs.length > 0 || fishes.length >= S.CAP - 1) return false;
+  if (a.jail || b.jail) return false;
+  if (a.sat < BREED_SAT || b.sat < BREED_SAT) return false;
+  const kind = pairKind(a, b);
+  if (!kind) return false;
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  if (kind === "same") {
+    // diet of the lesser-fed parent caps the egg grade; crowns tilt the odds up
+    const grade = rollEggGrade(Math.min(a.dietTier, b.dietTier),
+      (isCrowned(a) ? 1 : 0) + (isCrowned(b) ? 1 : 0));
+    const n = ri(1, 2);
+    for (let k = 0; k < n; k++) dropGradeEgg(grade, mx + rnd(-4, 4), my, rnd(22000, 38000));
+    a.sat -= BREED_SAT; b.sat -= BREED_SAT; // laying takes it out of them — feed again
+    return true;
+  }
+  const rec = HYBRIDS.find(h => h.parents.includes(a.species) && h.parents.includes(b.species));
+  a.sat -= BREED_SAT; b.sat -= BREED_SAT;
+  const chance = rec.chance + 0.05 * Math.min(a.dietTier, b.dietTier); // feed raises, never guarantees
+  if (Math.random() < chance) {
+    const def = SPECIES_DEF.find(d => d.key === rec.key);
+    eggs.push({ x: mx + rnd(-4, 4), y: my, hatch: rnd(22000, 38000), species: rec.key, pal: def.pal, palIdx: -1, hybrid: true });
+    hearts.push({ x: mx, y: Math.min(a.y, b.y) - 5, life: 1400 });
+  } else {
+    // the pair is a real recipe but the roll failed — broken heart says "retry"
+    hearts.push({ x: mx, y: Math.min(a.y, b.y) - 5, life: 1400, broken: true });
+  }
+  return true;
+}
+
 // first-discovery dex bounty, scaled by rarity (default 30 for commons)
 
 // graded eggs roll their species at hatch time — suspense until it cracks
@@ -1334,7 +1376,9 @@ cv.addEventListener("mousedown", (e) => {
     dropFood(best);
   }
 });
-cv.addEventListener("mousemove", (e) => {
+// drag tracks on document, not the canvas — passing over an overlay (dex card,
+// popup, toolbar) fires the canvas' mouseleave and would drop the fish mid-drag
+document.addEventListener("mousemove", (e) => {
   if (!S.dragFish) return;
   const { mx, my } = toLogical(e);
   S.dragMoved += Math.abs(mx - S.dragFish.x) + Math.abs(my - S.dragFish.y);
@@ -1352,14 +1396,27 @@ function endDrag(e) {
     for (let k = 0; k < 4; k++) bubbles.push({ x: f.x, y: f.y, r: 1, ph: rnd(0, 6) });
     return;
   }
+  // dropping a fish onto a partner runs the breeding judgment immediately
+  let mate = null, md = 18;
+  for (const o of fishes) {
+    if (o === f || o.jail || o.dragged) continue;
+    const d = Math.hypot(o.x - f.x, o.y - f.y);
+    if (d < md) { md = d; mate = o; }
+  }
+  if (mate && pairKind(f, mate)) {
+    if (S.raid) { /* battle first */ }
+    else if (eggs.length > 0) toast(tr("어항에 이미 알이 있어요 — 부화를 기다려요", "There's already an egg — wait for it to hatch"));
+    else if (fishes.length >= S.CAP - 1) toast(tr("어항이 가득 — 알 놓을 자리가 없어요", "Tank is full — no room for an egg"));
+    else if (f.sat < BREED_SAT || mate.sat < BREED_SAT) toast(tr("둘 다 배불러야 교배해요 — 먹이를 주세요", "Both must be well fed to breed — feed them"));
+    else if (tryBreedPair(f, mate)) return; // eggs and hearts do the talking
+  }
   // released (or jail full/whale): little splash, swims off
   f.knock = 500;
   f.kvx = rnd(-0.6, 0.6) + (inJail ? 1.2 : 0); // bounced off a full jail
   f.kvy = rnd(-0.4, 0.2);
   for (let k = 0; k < 3; k++) bubbles.push({ x: f.x, y: f.y, r: 1, ph: rnd(0, 6) });
 }
-cv.addEventListener("mouseup", endDrag);
-cv.addEventListener("mouseleave", endDrag);
+document.addEventListener("mouseup", endDrag);
 
 // ---------- fish context popup ----------
 S.popupFish = null;
@@ -1596,4 +1653,4 @@ requestAnimationFrame(loop);
 Object.assign(window, { __dbg: { S, fishes, makeFish, addFish, startRaid } });
 
 
-export { MANTIS, SAND_DWELLERS, JELLYS, SLOW_GIANTS, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, plants, updateNameTags, bumpStat };
+export { MANTIS, SAND_DWELLERS, JELLYS, SLOW_GIANTS, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, tryBreedPair, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, plants, updateNameTags, bumpStat };
