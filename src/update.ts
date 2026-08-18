@@ -3,10 +3,10 @@ import { S } from "./state";
 import { W, BASE_SAND, LAYER_H, reduced } from "./canvas";
 import { rnd, ri } from "./utils";
 import { MIN_FISH } from "./palette";
-import { FEED_DEF, KOR } from "./economy";
+import { FEED_DEF, KOR, HYBRIDS } from "./economy";
 import { tr } from "./i18n";
-import { DEEP_REQ } from "./sprites";
-import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, SLOW_GIANTS, BOSS_HP, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, bumpStat } from "./game";
+import { DEEP_REQ, SPECIES_DEF } from "./sprites";
+import { fishes, bubbles, flakes, coins, eggs, hearts, rings, JAIL, CHEST, MANTIS, SAND_DWELLERS, JELLYS, SLOW_GIANTS, BOSS_HP, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, isCrowned, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, bumpStat } from "./game";
 
 // ---------- update ----------
 function dropFood(f) {
@@ -51,7 +51,7 @@ function eat(f, fl) {
   f.food = null;
   f.retarget = 0;
   // still more food in the water? chain straight to the next bite
-  if (!f.jail && !SAND_DWELLERS.includes(f.species) && f.species !== "jelly") claimFlake(f, 150);
+  if (!f.jail && !SAND_DWELLERS.includes(f.species) && !JELLYS.includes(f.species)) claimFlake(f, 150);
 }
 
 function update(dt) {
@@ -103,7 +103,7 @@ function update(dt) {
       const mx = S.shark.x + S.shark.dir * 9;
       for (let i = 0; i < fishes.length; i++) {
         const f = fishes[i];
-        if (SAND_DWELLERS.includes(f.species) || f.species === "jelly" || f.jail || f.dragged) continue;
+        if (SAND_DWELLERS.includes(f.species) || JELLYS.includes(f.species) || f.jail || f.dragged) continue;
         if (f.inflated) continue; // spikes: inflated puffer is inedible
         if (Math.abs(f.x - mx) < 7 && Math.abs(f.y - S.shark.y) < 5) {
           dropFood(f);
@@ -166,11 +166,11 @@ function update(dt) {
       for (let i = 0; i < fishes.length; i++) {
         for (let j = i + 1; j < fishes.length; j++) {
           const a = fishes[i], b = fishes[j];
-          if (a.species !== b.species) continue;
-          if (SAND_DWELLERS.includes(a.species) || a.species === "jelly") continue;
           if (a.jail || b.jail || a.dragged || b.dragged) continue;
           if (a.sat < BREED_SAT || b.sat < BREED_SAT) continue; // both must be well fed
-          if (Math.hypot(a.x - b.x, a.y - b.y) < 24) {
+          if (Math.hypot(a.x - b.x, a.y - b.y) >= 24) continue;
+          if (a.species === b.species) {
+            if (SAND_DWELLERS.includes(a.species) || JELLYS.includes(a.species)) continue;
             // diet of the lesser-fed parent caps the egg grade; crowns tilt the odds up
             const grade = rollEggGrade(Math.min(a.dietTier, b.dietTier),
               (isCrowned(a) ? 1 : 0) + (isCrowned(b) ? 1 : 0));
@@ -181,6 +181,22 @@ function update(dt) {
             a.sat -= BREED_SAT; b.sat -= BREED_SAT; // laying takes it out of them — feed again
             break outer;
           }
+          // cross-species: only recipe pairs may lay a hybrid egg
+          const rec = HYBRIDS.find(h =>
+            (h.parents[0] === a.species && h.parents[1] === b.species) ||
+            (h.parents[1] === a.species && h.parents[0] === b.species));
+          if (!rec) continue;
+          a.sat -= BREED_SAT; b.sat -= BREED_SAT;
+          const chance = rec.chance + 0.05 * Math.min(a.dietTier, b.dietTier); // feed raises, never guarantees
+          if (Math.random() < chance) {
+            const def = SPECIES_DEF.find(d => d.key === rec.key);
+            eggs.push({
+              x: (a.x + b.x) / 2 + rnd(-4, 4), y: (a.y + b.y) / 2,
+              hatch: rnd(22000, 38000), species: rec.key, pal: def.pal, palIdx: -1, hybrid: true,
+            });
+          }
+          hearts.push({ x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 5, life: 1400 });
+          break outer;
         }
       }
     }
@@ -196,6 +212,8 @@ function update(dt) {
         // graded eggs roll their species only now, at the moment of hatching
         const species = e.grade != null ? rollEggSpecies(e.grade) : e.species;
         const baby = makeFish(species);
+        // richer eggs nudge the shiny odds up (never guaranteed)
+        if (!baby.shiny && e.grade > 0) baby.shiny = Math.random() < 0.005 * e.grade;
         if (e.grade == null) {
           baby.pal = e.pal;
           if (e.palIdx != null) baby.palIdx = e.palIdx;
@@ -318,8 +336,10 @@ function update(dt) {
       continue;
     }
 
-    if (f.species === "jelly") {
-      // jellyfin drifts and pulses, ignores food and sharks
+    if (JELLYS.includes(f.species)) {
+      // jellyfin drifts and pulses, ignores food and sharks;
+      // filter-feeds plankton — satiety rises slowly on its own (gates breeding)
+      f.sat = Math.min(100, f.sat + dt / 1000);
       f.y += (Math.sin(S.t * 0.0015 + f.phase) * 0.06 - 0.005) * dt * 0.06 * nightMul;
       f.x += Math.sin(S.t * 0.0008 + f.phase * 2) * 0.04 * dt * 0.06 * nightMul;
       f.y = Math.max(12, Math.min(S.SAND_Y - 14, f.y));

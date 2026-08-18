@@ -1,9 +1,9 @@
 // @ts-nocheck — mechanical port from the single-file build; typing is a follow-up pass
 import { S } from "./state";
 import { tr, LANG } from "./i18n";
-import { FISH_PALETTES, MIN_FISH, NAMES } from "./palette";
+import { FISH_PALETTES, MIN_FISH, NAMES, SHINY_RATE, shinyPal } from "./palette";
 import { SPRITES, JELLY_FRAMES, CRAB_FRAMES, SHARK_SPRITE, SHARK_PAL, MANTIS_SPRITE, MANTIS_PAL, SPECIES_DEF, DEEP_REQ, EGG_ROWS, EGG_PALS, COIN_ROWS, COIN_COLORS } from "./sprites";
-import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES, SEASONS, SEASON_REQ, ACH_DEFS } from "./economy";
+import { KOR, VARIED, FEED_DEF, EGG_SHOP, EGG_POOLS, BREED_EGG_ODDS, HYBRIDS, SELL_PRICE, DEX_BONUS, FRAME_SHOP, DEPTH_SHOP, GRADE_COLORS, TIER_LABELS, GRADE_NAMES, SEASONS, SEASON_REQ, ACH_DEFS } from "./economy";
 import { W, BASE_H, BASE_SAND, LAYER_H, MAX_DEPTH, cv, cx, reduced } from "./canvas";
 import { rnd, ri, todayStr, fmtWhen, seasonNow } from "./utils";
 import { px, drawWater, drawSand, drawPlant, drawRocks, drawSprite, drawEgg, drawFish, drawShark, drawRaid, drawJailBack, drawJailFront, drawCoins, drawChest } from "./draw";
@@ -41,7 +41,8 @@ export const JAIL = { x: 2, w: 25, top: S.SAND_Y - 30, h: 30, right: 27 };
 JAIL.slots = [null, null, null]; // one prisoner per treadmill level
 const MANTIS = { cool: 0, show: 0, dir: 1 };
 const SAND_DWELLERS = ["crab", "starfish"];
-const SLOW_GIANTS = ["whale", "beluga", "mola", "bluewhale", "giantsquid", "dolphin", "orca", "narwhal", "manta", "turtle"]; // slow drifters, too big for the jail door
+const JELLYS = ["jelly", "ghostjelly"]; // drift, sting, filter-feed — never chase flakes
+const SLOW_GIANTS = ["whale", "beluga", "mola", "bluewhale", "giantsquid", "dolphin", "orca", "narwhal", "manta", "turtle", "hawksbill", "loggerhead", "leatherback", "goldturtle"]; // slow drifters, too big for the jail door
 
 function pickSpecies() {
   const total = SPECIES_DEF.reduce((s, d) => s + d.w, 0);
@@ -58,6 +59,7 @@ function makeFish(forceKey) {
   S.spawnedPids.add(pid);
   const f = {
     species: def.key, pal, palIdx,
+    shiny: Math.random() < SHINY_RATE,
     name: def.name || NAMES[ri(0, NAMES.length - 1)],
     pid,
     x: rnd(20, W - 20),
@@ -81,7 +83,7 @@ function makeFish(forceKey) {
     sat: 0, dietTier: 0, // satiety gates breeding; diet tier caps the egg grade
   };
   if (def.key === "crab") { f.y = S.SAND_Y - 4; f.speed = rnd(0.075, 0.135); }
-  if (def.key === "jelly") { f.speed = rnd(0.02, 0.05); }
+  if (JELLYS.includes(def.key)) { f.speed = rnd(0.02, 0.05); }
   if (def.key === "starfish") { f.y = S.SAND_Y - 3; f.speed = rnd(0.008, 0.018); }
   if (def.key === "seahorse") { f.speed = rnd(0.03, 0.06); }
   if (def.key === "sword") { f.speed = rnd(0.45, 0.7); } // fastest fish in the tank
@@ -179,6 +181,7 @@ if (typeof S.save.dex !== "object" || !S.save.dex) S.save.dex = {};
 if (typeof S.save.feed !== "object" || !S.save.feed) S.save.feed = { basic: 30, prime: 0, golden: 0 };
 if (typeof S.save.ration !== "object" || !S.save.ration) S.save.ration = { date: "", basic: 0, prime: 0 };
 if (!Array.isArray(S.save.hatchLog)) S.save.hatchLog = [];
+if (typeof S.save.dexShiny !== "object" || !S.save.dexShiny) S.save.dexShiny = {}; // species -> 1 once a shiny is seen
 S.save.stats = Object.assign({ fed: 0, hatched: 0, sold: 0, raidWins: 0, jailDone: 0, chests: 0 }, S.save.stats || {});
 if (typeof S.save.ach !== "object" || !S.save.ach) S.save.ach = {}; // id -> claimed tier count
 if (typeof S.save.achNoted !== "object" || !S.save.achNoted) S.save.achNoted = {}; // id -> toasted tier count
@@ -191,14 +194,14 @@ S.save.depth = Math.min(MAX_DEPTH, Math.max(0, (S.save.depth) | 0));
 S.saveT = 0;
 function snapshotTank() {
   S.save.fish = fishes.map(f => ({
-    s: f.species, p: f.palIdx, n: f.name, c: f.customName || "",
+    s: f.species, p: f.palIdx, n: f.name, c: f.customName || "", sh: f.shiny ? 1 : 0,
     a: f.ate, la: f.lastAte || 0, x: Math.round(f.x), y: Math.round(f.y),
     st: Math.round(f.sat), dt: f.dietTier,
   }));
   S.save.eggs = eggs.map(e => ({
     s: e.species, p: e.palIdx == null ? -1 : e.palIdx,
     h: Math.round(e.hatch), x: Math.round(e.x), y: Math.round(e.y),
-    g: e.grade == null ? -1 : e.grade,
+    g: e.grade == null ? -1 : e.grade, hy: e.hybrid ? 1 : 0,
   }));
 }
 function persistNow() {
@@ -277,24 +280,33 @@ function toast(msg, long) {
 }
 
 
-function discover(species, palIdx) {
+function discover(species, palIdx, shiny) {
   const list = S.save.dex[species] || (S.save.dex[species] = []);
   const isNewSpecies = list.length === 0;
   const idx = palIdx == null ? -1 : palIdx;
-  if (list.includes(idx)) return;
-  list.push(idx);
+  const newColor = !list.includes(idx);
+  if (newColor) list.push(idx);
+  const newShiny = shiny && !S.save.dexShiny[species];
+  if (newShiny) S.save.dexShiny[species] = 1;
+  if (!newColor && !newShiny) return;
   if (isNewSpecies) {
     const bonus = DEX_BONUS[species] || 30;
     addGold(bonus);
     showDexCard(species, idx);
     log(tr(`📖 도감 등록: ${KOR[species]} +${bonus}골드`, `📖 New dex entry: ${KOR[species]} +${bonus} gold`));
   }
-  else if (VARIED.includes(species)) { addGold(5); toast(tr(`새 색상 발견: ${KOR[species]} +5🪙`, `New color found: ${KOR[species]} +5🪙`)); }
+  else if (newColor && VARIED.includes(species)) { addGold(5); toast(tr(`새 색상 발견: ${KOR[species]} +5🪙`, `New color found: ${KOR[species]} +5🪙`)); }
+  if (newShiny) {
+    const bonus = (DEX_BONUS[species] || 30) * 2;
+    addGold(bonus);
+    toast(tr(`✨ 변이 발견: ${KOR[species]} +${bonus}🪙`, `✨ Shiny found: ${KOR[species]} +${bonus}🪙`), true);
+    log(tr(`✨ 변이 도감 등록: ${KOR[species]} +${bonus}골드`, `✨ Shiny dex entry: ${KOR[species]} +${bonus} gold`));
+  }
   persist();
   checkAchToasts();
   renderDex();
 }
-function addFish(f) { fishes.push(f); discover(f.species, f.palIdx); return f; }
+function addFish(f) { fishes.push(f); discover(f.species, f.palIdx, f.shiny); return f; }
 
 // ---------- achievements ----------
 const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ", "Ⅸ", "Ⅹ"];
@@ -302,6 +314,7 @@ function statVal(stat) {
   if (stat === "species") return SPECIES_DEF.filter(d => (S.save.dex[d.key] || []).length > 0).length;
   if (stat === "seasonal") return SPECIES_DEF.filter(d => SEASON_REQ[d.key] != null && (S.save.dex[d.key] || []).length > 0).length;
   if (stat === "colors") return VARIED.reduce((s, k) => s + (S.save.dex[k] || []).filter(i => i >= 0).length, 0);
+  if (stat === "shinies") return Object.keys(S.save.dexShiny || {}).length;
   return S.save.stats[stat] || 0;
 }
 function achClaimable() {
@@ -613,7 +626,7 @@ function renderShop() {
 }
 
 function dexSprite(key) {
-  if (key === "jelly") return JELLY_FRAMES[0];
+  if (key === "jelly" || key === "ghostjelly") return JELLY_FRAMES[0];
   if (key === "crab") return CRAB_FRAMES[0];
   if (key === "golden") return SPRITES.guppy;
   return SPRITES[key];
@@ -627,7 +640,10 @@ function renderDex() {
   const foundTotal = SPECIES_DEF.filter(d => (S.save.dex[d.key] || []).length > 0).length;
   const sum = document.createElement("div");
   sum.className = "sect";
-  sum.textContent = tr(`🔍 발견 ${foundTotal}/${SPECIES_DEF.length}`, `🔍 Found ${foundTotal}/${SPECIES_DEF.length}`);
+  const shinyTotal = Object.keys(S.save.dexShiny || {}).length;
+  sum.textContent = tr(
+    `🔍 발견 ${foundTotal}/${SPECIES_DEF.length} · ✨ 변이 ${shinyTotal}/${SPECIES_DEF.length}`,
+    `🔍 Found ${foundTotal}/${SPECIES_DEF.length} · ✨ Shiny ${shinyTotal}/${SPECIES_DEF.length}`);
   dexBody.appendChild(sum);
   for (let tier = 0; tier < 4; tier++) {
     const species = SPECIES_DEF.filter(d => tierOf(d.key) === tier);
@@ -637,6 +653,15 @@ function renderDex() {
     head.textContent = `${TIER_LABELS[tier]} (${species.filter(d => (S.save.dex[d.key] || []).length > 0).length}/${species.length})`;
     dexBody.appendChild(head);
     dexBody.appendChild(dexGrid(species));
+  }
+  // breeding-exclusive hybrids live outside every egg pool (tierOf -1)
+  const hybrids = SPECIES_DEF.filter(d => tierOf(d.key) === -1);
+  if (hybrids.length) {
+    const head = document.createElement("div");
+    head.className = "sect";
+    head.textContent = `${tr("💠 교배 한정", "💠 Breeding Only")} (${hybrids.filter(d => (S.save.dex[d.key] || []).length > 0).length}/${hybrids.length})`;
+    dexBody.appendChild(head);
+    dexBody.appendChild(dexGrid(hybrids));
   }
 }
 
@@ -667,12 +692,18 @@ function dexGrid(defs) {
     }
     const nm = document.createElement("div");
     nm.className = "dnm";
-    nm.textContent = found ? KOR[d.key] : "???";
+    nm.textContent = (found ? KOR[d.key] : "???") + (S.save.dexShiny[d.key] ? " ✨" : "");
     const sub = document.createElement("div");
     sub.className = "dnm";
     sub.style.color = "#7fa3c8";
     const seasonTag = SEASON_REQ[d.key] != null ? tr(`${SEASONS[SEASON_REQ[d.key]]} 한정`, `${SEASONS[SEASON_REQ[d.key]]} only`) : "";
-    sub.textContent = found
+    // hybrids: the recipe stays hidden until the fish is bred once
+    const hyb = HYBRIDS.find(h => h.key === d.key);
+    sub.textContent = hyb
+      ? (found
+        ? `${KOR[hyb.parents[0]]} + ${KOR[hyb.parents[1]]}`
+        : tr("교배로만 획득 — 조합 ???", "Breeding only — recipe ???"))
+      : found
       ? (VARIED.includes(d.key)
         ? tr(`색 ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`, `Colors ${(S.save.dex[d.key] || []).filter(i => i >= 0).length}/${FISH_PALETTES.length}`)
         : seasonTag || tr("발견", "Found"))
@@ -735,8 +766,9 @@ function nextDexCard() {
 
   const tierEl = document.createElement("div");
   tierEl.className = "dctier";
-  tierEl.textContent = TIER_LABELS[tier];
-  tierEl.style.color = GRADE_COLORS[tier];
+  const isHybrid = tierOf(item.species) === -1;
+  tierEl.textContent = isHybrid ? tr("💠 교배 한정", "💠 Breeding Only") : TIER_LABELS[tier];
+  tierEl.style.color = isHybrid ? "#ff6b9d" : GRADE_COLORS[tier];
 
   dexCardEl.append(head, mc, nm, tierEl);
 
@@ -783,7 +815,8 @@ function recordHatch(egg, species) {
   if (S.save.hatchLog.length > 60) S.save.hatchLog.length = 60; // keep the last 60
   bumpStat("hatched");
   persist();
-  toast(tr(`${g >= 0 ? GRADE_NAMES[g] : "알"} 부화 → ${KOR[species]}!`, `${g >= 0 ? GRADE_NAMES[g] : "Egg"} hatched → ${KOR[species]}!`));
+  if (egg.hybrid) toast(tr(`💠 교배 한정 부화 → ${KOR[species]}!`, `💠 Hybrid hatched → ${KOR[species]}!`), true);
+  else toast(tr(`${g >= 0 ? GRADE_NAMES[g] : "알"} 부화 → ${KOR[species]}!`, `${g >= 0 ? GRADE_NAMES[g] : "Egg"} hatched → ${KOR[species]}!`));
 }
 
 function eggIcon(grade, size) {
@@ -853,7 +886,7 @@ function renderLog() {
 function sellFish(f) {
   if (f.species !== "crab" && nonCrabCount() <= MIN_FISH) { toast(tr("어항 최소 인원 — 더 팔 수 없어요", "Tank minimum reached — cannot sell")); return; }
   // crowned veterans fetch a premium — feeding them was an investment
-  const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
+  const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1) * (f.shiny ? 3 : 1));
   dropFood(f);
   fishes.splice(fishes.indexOf(f), 1);
   addGold(price);
@@ -1009,7 +1042,7 @@ function rallyStrike(mx, my) {
   S.raid.rallyCd = 4000;
   rings.push({ x: mx, y: my, r: 2, life: 600, col: "#46d8ff" });
   const braves = fishes.filter(f =>
-    !SAND_DWELLERS.includes(f.species) && f.species !== "jelly" && f.knock <= 0 && !f.jail && !f.dragged);
+    !SAND_DWELLERS.includes(f.species) && !JELLYS.includes(f.species) && f.knock <= 0 && !f.jail && !f.dragged);
   for (const f of braves) {
     f.aggro = true;
     f.aggroT = rnd(1400, 2200);
@@ -1077,7 +1110,7 @@ function raidFail() {
   const b = S.raid.boss;
   let victim = null, bd = 1e9;
   for (const f of fishes) {
-    if (SAND_DWELLERS.includes(f.species) || f.species === "jelly" || f.inflated || f.jail || f.dragged) continue;
+    if (SAND_DWELLERS.includes(f.species) || JELLYS.includes(f.species) || f.inflated || f.jail || f.dragged) continue;
     const d = Math.hypot(f.x - b.x, f.y - b.y);
     if (d < bd) { bd = d; victim = f; }
   }
@@ -1148,7 +1181,7 @@ function updateBoss(dt) {
   // jelly sting paralyzes
   if (b.jcd <= 0) {
     for (const f of fishes) {
-      if (f.species !== "jelly") continue;
+      if (!JELLYS.includes(f.species)) continue;
       if (Math.abs(f.x - b.x) < 10 && Math.abs(f.y - b.y) < 8) { b.stun = 1000; b.jcd = 5000; break; }
     }
   }
@@ -1166,7 +1199,7 @@ function updateBoss(dt) {
   // school ram: brave cluster charges together
   if (b.scd <= 0) {
     const braves = fishes.filter(f =>
-      !SAND_DWELLERS.includes(f.species) && f.species !== "jelly" && f.knock <= 0 &&
+      !SAND_DWELLERS.includes(f.species) && !JELLYS.includes(f.species) && f.knock <= 0 &&
       !f.jail && !f.dragged && Math.hypot(f.x - b.x, f.y - b.y) < 42);
     if (braves.length >= 4) {
       for (const f of braves) {
@@ -1338,7 +1371,8 @@ function popupSprite(f) {
   mc.width = rows[0].length * s;
   mc.height = rows.length * s;
   const g = mc.getContext("2d");
-  const pal = f.pal || FISH_PALETTES[f.palIdx || 0] || FISH_PALETTES[0];
+  const base = f.pal || FISH_PALETTES[f.palIdx || 0] || FISH_PALETTES[0];
+  const pal = f.shiny ? shinyPal(f.species, base) : base;
   for (let r = 0; r < rows.length; r++) {
     for (let c = 0; c < rows[r].length; c++) {
       const ch = rows[r][c];
@@ -1355,7 +1389,7 @@ function openFishPopup(f) {
   popupEl.innerHTML = "";
   const head = document.createElement("div");
   head.className = "phead";
-  head.append(popupSprite(f), `${f.customName || KOR[f.species]}${isCrowned(f) ? " 👑" : ""}`);
+  head.append(popupSprite(f), `${f.shiny ? "✨ " : ""}${f.customName || KOR[f.species]}${isCrowned(f) ? " 👑" : ""}`);
   // each stat is a label/value row with its own bar right beneath it
   // (label and value must be separate elements — adjacent text nodes merge
   // into one anonymous flex item, defeating the .prow space-between layout)
@@ -1383,7 +1417,7 @@ function openFishPopup(f) {
     isCrowned(f) ? 1 : f.ate / CROWN_AT, true);
   const btns = document.createElement("div");
   btns.className = "pbtns";
-  const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1));
+  const price = Math.round((SELL_PRICE[f.species] || 40) * (isCrowned(f) ? 1.5 : 1) * (f.shiny ? 3 : 1));
   const sellB = document.createElement("button");
   sellB.append(tr(`판매 +${price}`, `Sell +${price}`), coinImg(9));
   sellB.addEventListener("click", () => { closeFishPopup(); sellFish(f); });
@@ -1502,6 +1536,7 @@ if (Array.isArray(S.save.fish) && S.save.fish.length) {
     if (!SPECIES_DEF.some(d => d.key === sf.s)) continue;
     const f = makeFish(sf.s);
     if (sf.p >= 0 && FISH_PALETTES[sf.p]) { f.palIdx = sf.p; f.pal = FISH_PALETTES[sf.p]; }
+    f.shiny = !!sf.sh;
     if (sf.n) f.name = sf.n;
     if (sf.c) f.customName = sf.c;
     f.ate = sf.a || 0;
@@ -1528,7 +1563,7 @@ if (Array.isArray(S.save.fish) && S.save.fish.length) {
     const def = SPECIES_DEF.find(d => d.key === se.s);
     if (!def) continue;
     const pal = se.p >= 0 && FISH_PALETTES[se.p] ? FISH_PALETTES[se.p] : (def.pal || FISH_PALETTES[0]);
-    eggs.push({ x, y, hatch, species: se.s, pal, palIdx: se.p });
+    eggs.push({ x, y, hatch, species: se.s, pal, palIdx: se.p, hybrid: !!se.hy });
   }
 }
 if (!S.restored) {
@@ -1557,4 +1592,4 @@ requestAnimationFrame(loop);
 Object.assign(window, { __dbg: { S, fishes, makeFish, addFish, startRaid } });
 
 
-export { MANTIS, SAND_DWELLERS, SLOW_GIANTS, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, plants, updateNameTags, bumpStat };
+export { MANTIS, SAND_DWELLERS, JELLYS, SLOW_GIANTS, startRaid, updateBoss, summonShark, nonCrabCount, makeFish, addFish, rollEggGrade, dropGradeEgg, BREED_SAT, rollEggSpecies, recordHatch, LOVE_AT, CROWN_AT, log, toast, addGold, plants, updateNameTags, bumpStat };

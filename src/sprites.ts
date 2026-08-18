@@ -310,6 +310,36 @@ export const SPRITES = {
     "..ff......ff....",
     ".ff......ff.....",
   ],
+  hawksbill: [
+    "....ddddd......",
+    "..ddbdbdbdd....",
+    ".dbdbdbdbdbdbb.",
+    ".dbdbdbdbdbdbeb",
+    "..dddddddddbbb.",
+    "..ff.....ff....",
+    ".ff.....ff.....",
+  ],
+  loggerhead: [
+    ".....dddddd......",
+    "...ddbdbdbdd.....",
+    "..dbdbdbdbdbdbbb.",
+    ".ddbdbdbdbdbdbbeb",
+    ".dbdbdbdbdbdbbbbb",
+    "..ddddddddddddbb.",
+    "..ff.......ff....",
+    ".ff.......ff.....",
+  ],
+  leatherback: [
+    "......dddddddd......",
+    "....ddbbddddbbdd....",
+    "...dbbddbbbbddbbd...",
+    "..ddbbbbbbbbbbbbdbbb",
+    "..dbbddbbbbbbddbbbeb",
+    "...ddbbddddddbbdbbb.",
+    ".....dddddddddd.....",
+    "...ff........ff.....",
+    "..ff........ff......",
+  ],
   dolphin: [
     "..........dd..........",
     "f......bbbbbbbb.......",
@@ -435,7 +465,18 @@ export const SPRITES = {
     "ff.bbbbbbbbbb....",
     "f....bbbbbb......",
   ],
+  mir: [
+    "......c.c.........",
+    "f...bbbbbbbbb.....",
+    "ffbbbdbdbdbdbbbb..",
+    "ffbbbbbbbbbbbbbeb.",
+    "ffbbbdbdbdbdbbbbww",
+    "f...bbbbbbbbb.....",
+  ],
 };
+// breeding-exclusive hybrids that share a parent's silhouette
+SPRITES.goldturtle = SPRITES.turtle;
+SPRITES.parrot = SPRITES.betta;
 
 export const JELLY_FRAMES = [
   [
@@ -545,9 +586,12 @@ export const SPECIES_DEF = [
   { key: "octopus", w: 3,  name: "octo",    pal: { b: "#c05a6a", d: "#8a3a48", f: "#d88a94" } },
   { key: "ray",     w: 1.5, name: "flap",   pal: { b: "#b8965a", d: "#7a5f34", f: "#d0b47e" } },
   { key: "turtle",  w: 1,  name: "tank",    pal: { b: "#3c8a5c", d: "#26593c", f: "#8ac89a" } },
+  { key: "hawksbill", w: 3, name: "amber",  pal: { b: "#c98a3c", d: "#7a4f1e", f: "#e0b06a" } },
+  { key: "loggerhead", w: 1, name: "rocky", pal: { b: "#b0563c", d: "#6e3222", f: "#d08a6a" } },
   { key: "dolphin", w: 0.8, name: "echo",   pal: { b: "#8fa8bc", d: "#5c7488", f: "#b4c8d8" } },
   // mythic apex + seasonal visitors: egg-only (w 0)
   { key: "orca",    w: 0,  name: "willy",   pal: { b: "#1e242e", d: "#f0f4f8", f: "#2e3844" } },
+  { key: "leatherback", w: 0, name: "titan", pal: { b: "#3e5570", d: "#243448", f: "#6a86a4" } },
   { key: "narwhal", w: 0,  name: "uni",     pal: { b: "#c8d2dc", d: "#8a98a8", f: "#aebac6" } },
   { key: "cherrysalmon", w: 0, name: "cherry", pal: { b: "#e88a9a", d: "#b85468", f: "#f4b4c0" } },
   { key: "seabream", w: 0, name: "dom",     pal: { b: "#e06a5a", d: "#a83c30", f: "#f09a8a" } },
@@ -561,6 +605,11 @@ export const SPECIES_DEF = [
   { key: "cod",     w: 0,  name: "mook",    pal: { b: "#8a7a58", d: "#5a4e36", f: "#b0a078" } },
   { key: "icefish", w: 0,  name: "frost",   pal: { b: "#c4d8e8", d: "#8aa8c0", f: "#e0eef8" } },
   { key: "yellowtail", w: 0, name: "buri",  pal: { b: "#9ab0c0", d: "#e8c83c", f: "#ffd54a" } },
+  // breeding-exclusive hybrids: in no egg pool, w 0 — only a recipe pair lays them
+  { key: "goldturtle", w: 0, name: "midas", pal: { b: "#ffd54a", d: "#c79a1e", f: "#fff6c9" } },
+  { key: "parrot",  w: 0, name: "polly",   pal: { b: "#38c87a", d: "#1e8a52", f: "#ff6b9d" } },
+  { key: "ghostjelly", w: 0, name: "boo",  pal: { b: "#c8f0ff", d: "#8ab8d8", f: "#e8fbff" } },
+  { key: "mir",     w: 0, name: "mir",     pal: { b: "#4ec288", d: "#2a8a5c", f: "#ffd54a" } },
 ];
 
 export const DEEP_REQ = { hatchet: 1, angler: 1, gulper: 2, oarfish: 2, giantsquid: 2, bluewhale: 1, beluga: 1 };

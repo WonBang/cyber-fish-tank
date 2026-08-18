@@ -12,10 +12,12 @@ const NAMES_KO = {
   bluewhale: "흰수염고래", giantsquid: "대왕오징어",
   cory: "코리도라스", catfish: "메기", lionfish: "쏠배감펭", moray: "곰치", octopus: "문어",
   ray: "가오리", turtle: "바다거북", dolphin: "돌고래", orca: "범고래", narwhal: "일각고래",
+  hawksbill: "매부리거북", loggerhead: "붉은바다거북", leatherback: "장수거북",
   cherrysalmon: "산천어", seabream: "참돔", butterflyfish: "나비고기",
   mackerel: "고등어", flyingfish: "날치", manta: "만타가오리",
   salmon: "연어", gizzardshad: "전어", cutlass: "갈치",
   cod: "대구", icefish: "빙어", yellowtail: "방어",
+  goldturtle: "황금거북", parrot: "앵무붕어", ghostjelly: "유령해파리", mir: "미르",
 };
 
 const NAMES_EN = {
@@ -29,10 +31,12 @@ const NAMES_EN = {
   bluewhale: "Blue Whale", giantsquid: "Giant Squid",
   cory: "Corydoras", catfish: "Catfish", lionfish: "Lionfish", moray: "Moray", octopus: "Octopus",
   ray: "Stingray", turtle: "Sea Turtle", dolphin: "Dolphin", orca: "Orca", narwhal: "Narwhal",
+  hawksbill: "Hawksbill", loggerhead: "Loggerhead", leatherback: "Leatherback",
   cherrysalmon: "Cherry Salmon", seabream: "Sea Bream", butterflyfish: "Butterfly",
   mackerel: "Mackerel", flyingfish: "Flying Fish", manta: "Manta Ray",
   salmon: "Salmon", gizzardshad: "Shad", cutlass: "Cutlass",
   cod: "Cod", icefish: "Smelt", yellowtail: "Yellowtail",
+  goldturtle: "Gold Turtle", parrot: "Parrotfish", ghostjelly: "Ghost Jelly", mir: "Mir",
 };
 
 // localized species names (export name kept from the Korean-only era)
@@ -73,7 +77,7 @@ export const EGG_POOLS = [
   [ ["tetra", 11], ["guppy", 11], ["clown", 8], ["angel", 7], ["goldfish", 7], ["zebra", 6],
     ["molly", 5], ["cory", 5], ["starfish", 5], ["seahorse", 5],
     ["crab", 5], ["puffer", 5], ["jelly", 5], ["betta", 5], ["sword", 5], ["catfish", 5],
-    ["discus", 4], ["bluetang", 4], ["lionfish", 4], ["moray", 4], ["octopus", 4],
+    ["discus", 4], ["bluetang", 4], ["lionfish", 4], ["moray", 4], ["octopus", 4], ["hawksbill", 4],
     ["whale", 3], ["hatchet", 4], ["angler", 3],
     // seasonal visitors (filtered off-season)
     ["cherrysalmon", 3], ["seabream", 3], ["mackerel", 3], ["flyingfish", 3],
@@ -82,16 +86,25 @@ export const EGG_POOLS = [
     ["molly", 5], ["cory", 5], ["starfish", 5], ["seahorse", 5],
     ["crab", 5], ["puffer", 5], ["jelly", 5], ["sword", 4], ["whale", 4], ["betta", 4],
     ["catfish", 4], ["discus", 4], ["bluetang", 3],
-    ["lionfish", 3.5], ["moray", 3.5], ["octopus", 3.5],
+    ["lionfish", 3.5], ["moray", 3.5], ["octopus", 3.5], ["hawksbill", 3.5],
     ["hatchet", 3], ["angler", 3], ["gulper", 2], ["oarfish", 1.5],
     ["golden", 3], ["arowana", 2.5], ["coelacanth", 2.5], ["mola", 2.5],
-    ["ray", 2], ["turtle", 2], ["dolphin", 2],
+    ["ray", 2], ["turtle", 2], ["loggerhead", 2], ["dolphin", 2],
     ["cherrysalmon", 2.5], ["seabream", 2.5], ["mackerel", 2.5], ["flyingfish", 2.5],
     ["salmon", 2.5], ["gizzardshad", 2.5], ["cod", 2.5], ["icefish", 2.5],
     ["butterflyfish", 1.5], ["cutlass", 1.5], ["yellowtail", 1.5], ["manta", 1.2] ],
   // mythic egg: legendary tier and above only — no commons, no mids
   [ ["gulper", 20], ["mola", 18], ["arowana", 16], ["golden", 13], ["coelacanth", 11], ["oarfish", 8],
-    ["giantsquid", 6], ["bluewhale", 5], ["orca", 5], ["narwhal", 4], ["beluga", 3] ],
+    ["giantsquid", 6], ["bluewhale", 5], ["orca", 5], ["narwhal", 4], ["leatherback", 3.5], ["beluga", 3] ],
+];
+
+// breeding-exclusive recipes: a well-fed cross-species pair may lay a hybrid
+// egg — richer parent diet raises the odds (never guarantees)
+export const HYBRIDS = [
+  { key: "goldturtle", parents: ["turtle", "golden"],  chance: 0.25 },
+  { key: "parrot",     parents: ["clown", "betta"],    chance: 0.25 },
+  { key: "ghostjelly", parents: ["jelly", "angler"],   chance: 0.25 },
+  { key: "mir",        parents: ["arowana", "oarfish"], chance: 0.2 },
 ];
 
 export const BREED_EGG_ODDS = [
@@ -110,6 +123,8 @@ export const SELL_PRICE = {
   giantsquid: 1500, bluewhale: 1800, beluga: 2500,
   cory: 55, catfish: 140, lionfish: 170, moray: 180, octopus: 200,
   ray: 700, turtle: 900, dolphin: 1200, orca: 2800, narwhal: 2600,
+  hawksbill: 200, loggerhead: 850, leatherback: 2400,
+  goldturtle: 2000, parrot: 600, ghostjelly: 900, mir: 3500,
   cherrysalmon: 180, seabream: 200, butterflyfish: 550,
   mackerel: 160, flyingfish: 190, manta: 1400,
   salmon: 220, gizzardshad: 150, cutlass: 800,
@@ -124,6 +139,8 @@ export const DEX_BONUS = {
   giantsquid: 350, bluewhale: 400, beluga: 500,
   catfish: 60, lionfish: 60, moray: 60, octopus: 70,
   ray: 150, turtle: 180, dolphin: 250, orca: 550, narwhal: 520,
+  hawksbill: 70, loggerhead: 150, leatherback: 480,
+  goldturtle: 400, parrot: 150, ghostjelly: 200, mir: 600,
   cherrysalmon: 100, seabream: 100, butterflyfish: 200,
   mackerel: 100, flyingfish: 100, manta: 300,
   salmon: 100, gizzardshad: 100, cutlass: 250,
@@ -144,9 +161,10 @@ export const ACH_DEFS = [
     tiers: [[5, 40], [15, 60], [30, 100], [60, 180], [100, 250], [180, 350], [300, 500], [500, 700], [750, 900], [1000, 1200]] },
   { id: "chest",  icon: "📦", name: tr("보물상자 열기", "Chests"),  stat: "chests",
     tiers: [[10, 30], [30, 50], [75, 80], [150, 150], [300, 250], [500, 350], [800, 500], [1200, 650], [1700, 800], [2500, 1000]] },
-  { id: "dex",    icon: "📖", name: tr("도감 수집", "Dex"),      stat: "species",  tiers: [[10, 200], [25, 500], [40, 1500], [50, 3000]] },
+  { id: "dex",    icon: "📖", name: tr("도감 수집", "Dex"),      stat: "species",  tiers: [[10, 200], [25, 500], [40, 1500], [50, 3000], [53, 5000], [57, 8000]] },
   { id: "season", icon: "🍂", name: tr("계절 한정 수집", "Seasonal"), stat: "seasonal", tiers: [[3, 300], [6, 800], [12, 2500]] },
   { id: "color",  icon: "🎨", name: tr("색상 수집", "Colors"),      stat: "colors",   tiers: [[6, 100], [12, 250], [24, 600], [36, 1200], [48, 3000]] },
+  { id: "shiny",  icon: "✨", name: tr("변이 수집", "Shinies"),     stat: "shinies",  tiers: [[1, 300], [3, 700], [8, 1500], [15, 3000], [30, 6000]] },
 ];
 
 export const FRAME_SHOP = [

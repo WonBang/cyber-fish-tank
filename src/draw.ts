@@ -2,6 +2,7 @@
 import { S } from "./state";
 import { W, BASE_SAND, LAYER_H, cx, reduced } from "./canvas";
 import { rnd } from "./utils";
+import { shinyPal } from "./palette";
 import { SPRITES, JELLY_FRAMES, CRAB_FRAMES, SHARK_SPRITE, SHARK_PAL, EGG_ROWS, EGG_PALS, COIN_ROWS, COIN_COLORS } from "./sprites";
 import { sandNoise, KELP_DAY, KELP_NIGHT, BUSH_DAY, BUSH_NIGHT, GLOW_CYCLE, isCrowned, RAID_WARN_MS, BOSS_HP, WOUND_SPOTS, JAIL, coins, CHEST } from "./game";
 
@@ -193,7 +194,7 @@ function drawSprite(rows, cxr, cyr, dir, pal, opts) {
 
 // classic oval egg: highlight top-left, shaded bottom-right, grade-tinted
 function drawEgg(e) {
-  const pal = EGG_PALS[e.grade] || EGG_PALS[0];
+  const pal = e.hybrid ? EGG_PALS[3] : EGG_PALS[e.grade] || EGG_PALS[0];
   // hatching soon: rock side to side, then a crack appears
   const wobble = e.hatch < 4000 ? Math.round(Math.sin(S.t * 0.03)) : 0;
   const ox = Math.round(e.x) - 2 + wobble;
@@ -209,8 +210,8 @@ function drawEgg(e) {
     px(ox + 1, oy + 3, crack); px(ox + 2, oy + 2, crack); px(ox + 3, oy + 3, crack);
   }
   // legendary and mythic eggs sparkle
-  if (e.grade >= 2 && Math.floor(S.t * 0.004) % 3 === 0) {
-    px(e.x + rnd(-3, 4), e.y + rnd(-3, 3), e.grade === 3 ? "#efe0ff" : "#fff6c9");
+  if ((e.grade >= 2 || e.hybrid) && Math.floor(S.t * 0.004) % 3 === 0) {
+    px(e.x + rnd(-3, 4), e.y + rnd(-3, 3), e.grade === 3 || e.hybrid ? "#efe0ff" : "#fff6c9");
   }
 }
 
@@ -219,14 +220,18 @@ function drawFish(f) {
   const fastFrame = Math.floor(S.t * (reduced ? 0.0015 : 0.003) + f.phase) % 2;
   const slowFrame = Math.floor(S.t * (reduced ? 0.0008 : 0.0015) + f.phase) % 2;
   let rows, opts = { squish: fastFrame === 1 };
-  if (f.species === "jelly") { rows = JELLY_FRAMES[slowFrame]; opts = {}; }
+  if (f.species === "jelly" || f.species === "ghostjelly") { rows = JELLY_FRAMES[slowFrame]; opts = {}; }
   else if (f.species === "crab") { rows = CRAB_FRAMES[fastFrame]; opts = {}; }
   else if (f.species === "starfish") { rows = SPRITES.starfish; opts = {}; }
   else if (f.species === "seahorse") { rows = SPRITES.seahorse; }
   else if (f.species === "puffer" && f.inflated) { rows = SPRITES.pufferBig; opts = {}; }
   else if (f.species === "golden") { rows = SPRITES.guppy; }
   else { rows = SPRITES[f.species]; }
-  const box = drawSprite(rows, f.x, f.y, f.dir, f.pal, opts);
+  const box = drawSprite(rows, f.x, f.y, f.dir, f.shiny ? shinyPal(f.species, f.pal) : f.pal, opts);
+  // shiny glimmer
+  if (f.shiny && Math.floor(S.t * 0.004) % 3 === 0) {
+    px(f.x + rnd(-6, 6), f.y + rnd(-4, 4), Math.random() < 0.5 ? "#ffffff" : "#7ae6ff");
+  }
   // senior fish crown
   if (isCrowned(f)) {
     cx.fillStyle = "#ffd54a";
@@ -235,7 +240,7 @@ function drawFish(f) {
     px(hx - 1, box.oy - 3, "#ffd54a"); px(hx + 1, box.oy - 3, "#ffd54a");
   }
   // golden sudo sparkle
-  if (f.species === "golden" && Math.floor(S.t * 0.004) % 3 === 0) {
+  if ((f.species === "golden" || f.species === "goldturtle") && Math.floor(S.t * 0.004) % 3 === 0) {
     px(f.x + rnd(-7, 7), f.y + rnd(-5, 5), Math.random() < 0.5 ? "#fff6c9" : "#ffd54a");
   }
   // anglerfish lure pulses in the dark
