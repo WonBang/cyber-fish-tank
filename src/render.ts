@@ -27,8 +27,17 @@ function render() {
   for (const f of fishes) drawFish(f);
   drawShark();
   for (const h of hearts) {
-    const c = h.life > 400 ? "#ff6b9d" : "#c23f6e";
     const hx = Math.round(h.x), hy = Math.round(h.y);
+    if (h.broken) {
+      // failed breeding roll: grey heart split down the middle, halves drifting apart
+      const c = h.life > 400 ? "#9ab0c4" : "#6a7f94";
+      const gap = h.life < 700 ? 1 : 0;
+      px(hx - 1 - gap, hy - 1, c); px(hx + 1 + gap, hy - 1, c);
+      px(hx - 1 - gap, hy, c); px(hx + 1 + gap, hy, c);
+      px(hx - gap, hy + 1, c); px(hx + gap, hy + 1, c);
+      continue;
+    }
+    const c = h.life > 400 ? "#ff6b9d" : "#c23f6e";
     px(hx - 1, hy - 1, c); px(hx + 1, hy - 1, c);
     px(hx - 1, hy, c); px(hx, hy, c); px(hx + 1, hy, c);
     px(hx, hy + 1, c);

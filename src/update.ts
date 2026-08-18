@@ -194,8 +194,11 @@ function update(dt) {
               x: (a.x + b.x) / 2 + rnd(-4, 4), y: (a.y + b.y) / 2,
               hatch: rnd(22000, 38000), species: rec.key, pal: def.pal, palIdx: -1, hybrid: true,
             });
+            hearts.push({ x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 5, life: 1400 });
+          } else {
+            // the pair is a real recipe but the roll failed — broken heart says "retry"
+            hearts.push({ x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 5, life: 1400, broken: true });
           }
-          hearts.push({ x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 5, life: 1400 });
           break outer;
         }
       }
